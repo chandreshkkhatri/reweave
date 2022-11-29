@@ -1,0 +1,13 @@
+# python code
+/.vs
+/builds/
+/res
+/uploads/*
+# /ui/azure-ttk-theme
+/gapi_cred.json
+/client_secrets.json
+*.pyc
+*.mp3
+*.db
+*.rdb
+# electron code
