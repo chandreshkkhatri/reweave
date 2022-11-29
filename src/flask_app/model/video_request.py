@@ -1,5 +1,4 @@
-import json
-from bson import json_util
+from bson.objectid import ObjectId
 from src.commons.helpers import get_mongo_client
 
 mongo_client = get_mongo_client()
@@ -12,16 +11,14 @@ def create_request(data):
 
 def get_by_id(id):
     """get video requests"""
-    video_requests = mongo_client['video_requests']
-    return video_requests.find_one({
-        'id': id
+    return video_requests_table.find_one({
+        '_id': ObjectId(id)
     })
 
 def cancel_request(id):
     """cancel video request"""
-    video_requests = mongo_client['video_requests']
-    video_requests.update_one({
-        'id': id,
+    video_requests_table.update_one({
+        '_id': ObjectId(id),
         'status': 'pending'
     }, {
         '$set': {
@@ -32,14 +29,14 @@ def cancel_request(id):
 
 def get_all_videos(page, limit):
     """get all videos"""
-    video_requests = mongo_client['video_requests']
-    return video_requests.find({}).skip(page).limit(limit)
+    cursor = video_requests_table.find().skip(page).limit(limit)
+    return list(cursor)
 
 def update_video_request_status(id, status):
     """update video request status"""
     video_requests = mongo_client['video_requests']
     video_requests.update_one({
-        'id': id
+        'id': ObjectId(id)
     }, {
         '$set': {
             'status': status
