@@ -1,26 +1,20 @@
-from src.commons.helpers import get_mongo_client
+from src.flask_app.model import video_request_model
 
-mongo_client = get_mongo_client()
-
-def create_request(request):
+def create_request(data):
     """create video request"""
-    data = request.json
-    video_requests = mongo_client['video_requests']
-    video_requests.insert_one(data)
-    return data
+    return video_request_model.create_request(data)
 
-def get_by_id(id):
+def get_video_request(id):
     """get video requests"""
-    video_requests = mongo_client['video_requests']
-    return video_requests.find_one({id: id})
+    data = video_request_model.get_by_id(id)
+    if data:
+        return data
+    return 'Video request not found'
 
 def cancel_request(id):
     """cancel video request"""
-    video_requests = mongo_client['video_requests']
-    video_requests.update_one({id: id, 'status': 'pending'}, {'status': 'cancelled'})
-    return 'Video request cancelled'
+    return video_request_model.cancel_request(id)
 
 def get_all_videos(page, limit):
     """get all videos"""
-    video_requests = mongo_client['video_requests']
-    return video_requests.find({}).skip(page).limit(limit)
+    return video_request_model.get_all_videos(page, limit)

@@ -2,7 +2,7 @@ import pymongo
 
 mongo_client = pymongo.MongoClient("mongodb://localhost:27017/")
 
-tg_content_db = mongo_client["tg_content_db"]
+taxis_media_db = mongo_client["t-axis-media"]
 
 def get_mongo_client():
-    return tg_content_db
+    return taxis_media_db

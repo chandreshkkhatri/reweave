@@ -16,11 +16,15 @@ def video_request():
         data = request.json
         video_requests_controller.create_request(data)
         return data
-    if request.method == 'GET':
-        data = request.json
-        id = data['id']
-        return video_requests_controller.get_by_id(id)
 
+@app.route('/video/<id>', methods=['GET','DELETE'])
+@cross_origin()
+def video_request_by_id(id):
+    """video request methods"""
+    if request.method == 'GET':
+        return video_requests_controller.get_video_request(id)
+    if request.method == 'DELETE':
+        return video_requests_controller.cancel_request(id)
 
 @app.route('/cancel-video-request', methods=['GET'])
 @cross_origin()
@@ -34,6 +38,7 @@ def cancel_video_request():
 @app.route('/get-all-videos', methods=['GET'])
 @cross_origin()
 def get_all_videos():
+    print('get all videos')
     """get all videos"""
     if request.method == 'GET':
         page = 0
