@@ -3,10 +3,8 @@ Routes for video related endpoints.
 """
 from flask import request
 from flask_cors import cross_origin
-from src.commons.helpers import get_mongo_client
 from src.flask_app.controllers import video_requests_controller
 from src.flask_app import app
-mongo_client = get_mongo_client()
 
 @app.route('/video', methods=['GET','POST'])
 @cross_origin()
@@ -35,7 +33,7 @@ def cancel_video_request():
         id = data['id']
         return video_requests_controller.cancel_request(id)
 
-@app.route('/get-all-videos', methods=['GET'])
+@app.route('/get-all-video-requests', methods=['GET'])
 @cross_origin()
 def get_all_videos():
     print('get all videos')

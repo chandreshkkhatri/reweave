@@ -13,7 +13,7 @@ def get_types():
     return "PONG"
 
 
-@app.route('/templates', methods=['GET'])
+@app.route('/template-names', methods=['GET'])
 @cross_origin()
 def get_templates():
     return [e.value for e in VideoTemplates]
