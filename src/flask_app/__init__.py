@@ -18,3 +18,4 @@ app.config['CORS_HEADERS'] = 'Content-Type'
 import src.flask_app.ping
 import src.flask_app.data
 import src.flask_app.video_requests
+import src.flask_app.video_template

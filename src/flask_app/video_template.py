@@ -3,7 +3,7 @@ from flask_cors import cross_origin
 from src.flask_app import app
 from src.flask_app.model import video_template_model
 
-@app.route('/video-template', methods=['GET','POST'])
+@app.route('/video-template', methods=['POST'])
 @cross_origin()
 def templates():
     """templates methods"""
