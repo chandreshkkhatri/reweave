@@ -7,8 +7,8 @@ from moviepy.audio.fx import all as afx
 from src.services.text_to_speech import pytts
 from src.services.video_builder.moviepy.helper import get_template
 from src.services.graphics_extensions.moviepy import ClipTemplates as ct
-from  src.services.graphics_extensions.moviepy import ClipComponents as cc
-from commons.classes.dataclasses import VideoTemplate, ClipContent
+from src.services.graphics_extensions.moviepy import ClipComponents as cc
+from src.commons.classes.dataclasses import VideoTemplate, ClipContent
 TITLE_CLIP = "title_clip"
 END_CLIP = "end_clip"
 CONTENT_CLIP = "content_clip"

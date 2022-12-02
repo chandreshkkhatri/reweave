@@ -1,5 +1,5 @@
 import moviepy.editor as mp
-from commons.enums.attributes import Position
+from src.commons.enums.attributes import Position
 from src.services.graphics_extensions.moviepy.ClipTemplates.BaseTemplateClip import BaseTemplateClip
 
 class EndClip(BaseTemplateClip):

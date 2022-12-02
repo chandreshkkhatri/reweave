@@ -1,5 +1,5 @@
 import moviepy.editor as mp
-from commons.enums.attributes import Position, TextClipMethod
+from src.commons.enums.attributes import Position, TextClipMethod
 from src.services.graphics_extensions.moviepy.ClipComponents.BaseComponentClip import BaseComponentClip
 
 

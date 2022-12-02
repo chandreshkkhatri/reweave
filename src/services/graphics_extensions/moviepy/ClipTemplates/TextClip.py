@@ -1,5 +1,5 @@
 import moviepy.editor as mp
-from commons.enums.attributes import Position
+from src.commons.enums.attributes import Position
 import src.services.graphics_extensions.moviepy.ClipComponents as cc
 from src.services.graphics_extensions.moviepy.ClipTemplates.BaseTemplateClip import BaseTemplateClip
 

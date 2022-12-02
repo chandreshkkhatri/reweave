@@ -5,6 +5,7 @@ Created on Sun Sep 11 10:22:35 2022
 @author: Khatri
 """
 from csv import reader
+from commons.config import *
 
 from src.services.video_builder.moviepy.builder import VideoBuilder
 
@@ -33,7 +34,7 @@ class VideoCreator:
                 if row_idx != 0:
                     final_clip = video_builder.get_video_clip(row[1:])
                     final_clip.write_videofile(
-                        f'./{BUILDS_DIR}/{video_file_name}.{MP4}', fps=DEFAULT_FPS, codec=LIBX264)
+                        f'{RESOURCES_DIR}/{BUILDS_DIR}/{video_file_name}.{MP4}', fps=DEFAULT_FPS, codec=LIBX264)
         return 'Success'
 
     def create_video_file(self, template, content, file_name):
@@ -43,7 +44,7 @@ class VideoCreator:
         video_builder = VideoBuilder(template)
         final_clip = video_builder.get_video_clip(content)
         final_clip.write_videofile(
-            f'./{BUILDS_DIR}/{file_name}.{MP4}', fps=DEFAULT_FPS, codec=LIBX264)
+            f'{RESOURCES_DIR}/{BUILDS_DIR}/{file_name}.{MP4}', fps=DEFAULT_FPS, codec=LIBX264)
 
     def preview_video_file(self, template, content):
         '''

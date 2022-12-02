@@ -11,7 +11,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from google.oauth2.credentials import Credentials
 
 from googleapiclient.http import MediaFileUpload
-from commons.redis_init import redis_conn
+from src.commons.redis_init import redis_conn
 hname = 'yt_session'
 yt_session_token_key = 'yt_session_token'
 

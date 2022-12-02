@@ -3,7 +3,7 @@ Routes for data related endpoints.
 """
 from flask_cors import cross_origin
 from src.flask_app import app
-from commons.enums.templates import VideoTemplates
+from src.commons.enums.templates import VideoTemplates
 
 
 @app.route('/types', methods=['GET'])

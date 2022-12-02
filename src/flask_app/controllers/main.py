@@ -1,11 +1,17 @@
 """
 Main Controller until the controllers are split into separate files
 """
+import sys
+from commons.config import *
+from bson.objectid import ObjectId
+
+sys.path.append(RESOURCES_DIR)
 
 from src.services.video_builder.moviepy.creator import VideoCreator
 from src.services.youtube_interface.request_methods import YouTubeClient
 from src.services.text_to_speech import pytts
-from res.content import content as global_content
+from src.flask_app.controllers.video_requests import video_request_model
+global_content = video_request_model.get_by_id(id=ObjectId('6389eb4aa70b71cd6b063715'))
 
 
 def one_click_generate_and_upload():
@@ -19,7 +25,7 @@ def create_video_file():
     creator = VideoCreator()
     creator.create_video_file(
         global_content.get('template'),
-        content=global_content.get('content'),
+        content=global_content.get('clips'),
         file_name=global_content.get('file_name'),
     )
 
@@ -34,7 +40,7 @@ def preview_video_file():
     creator = VideoCreator()
     creator.preview_video_file(
         global_content.get('template'),
-        content=global_content.get('content'),
+        content=global_content.get('clips'),
     )
 
 
@@ -52,3 +58,4 @@ def upload_video_with_retries():
 
 def save_audio():
     pytts.save_audio("Hello, this is a test", "test.mp3")
+    
