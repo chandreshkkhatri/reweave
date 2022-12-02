@@ -7,8 +7,12 @@ video_requests_table = mongo_client['video_requests']
 
 def create_request(data):
     """create video request"""
-    data = video_requests_table.insert_one(data)
-    return data
+    try:
+        video_requests_table.insert_one(data)
+        return 'Video request created'
+    except Exception as e:
+        print(e)
+        return 'Video request not created'
 
 
 def get_by_id(id):
