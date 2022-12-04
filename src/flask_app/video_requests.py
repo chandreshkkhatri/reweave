@@ -43,3 +43,9 @@ def get_all_videos():
         limit = 50
         return video_requests_controller.get_all_videos(page, limit)
 
+@app.route('/render-video/<id>', methods=['GET'])
+@cross_origin()
+def render_video(id):
+    """render video"""
+    if request.method == 'GET':
+        return video_requests_controller.render_video(id)
