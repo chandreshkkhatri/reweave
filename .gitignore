@@ -1,8 +1,9 @@
 # python code
 /.vs
-/builds/
+/build
 /res
-/uploads/*
+/uploads
+/t_axis_media.egg-info
 # /ui/azure-ttk-theme
 /gapi_cred.json
 /client_secrets.json
