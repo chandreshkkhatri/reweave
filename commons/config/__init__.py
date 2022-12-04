@@ -1,1 +1,1 @@
-from commons.config.config import *
+from commons.config.config_loader import *

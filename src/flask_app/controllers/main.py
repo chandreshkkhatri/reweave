@@ -18,7 +18,7 @@ def one_click_generate_and_upload():
     create_video_file()
     youtube_client = YouTubeClient()
     youtube_client.upload_video(file_name=global_content.get(
-        'file_name')+'.mp4', title='Sanskriti Test3')
+        'fileName')+'.mp4', title='Sanskriti Test3')
 
 
 def create_video_file():
@@ -26,14 +26,14 @@ def create_video_file():
     creator.create_video_file(
         global_content.get('template'),
         content=global_content.get('clips'),
-        file_name=global_content.get('file_name'),
+        file_name=global_content.get('fileName'),
     )
 
 
 def upload_video():
     youtube_client = YouTubeClient()
     youtube_client.upload_video(file_name=global_content.get(
-        'file_name')+'.mp4', title='Bajaj HIL')
+        'fileName')+'.mp4', title='Bajaj HIL')
 
 
 def preview_video_file():
