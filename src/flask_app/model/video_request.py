@@ -40,6 +40,16 @@ def get_all_videos(page, limit):
     cursor = video_requests_table.find().skip(page*limit).limit(limit)
     return list(cursor)
 
+def update_render_status(id, status):
+    video_requests_table.update_one({
+        '_id': ObjectId(id)
+    }, {
+        '$set': {
+            'renderStatus': status
+        }
+    })
+    return 'Video request render status updated'
+    
 
 def update_video_request_status(id, status):
     """update video request status"""

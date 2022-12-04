@@ -45,4 +45,5 @@ def render_video_in_parallel(data):
     global rendering_in_progress
     video_creator = VideoCreator()
     video_creator.create_video_file(data.get('template'), data.get('clips'), data.get('fileName'))
+    video_request_model.update_render_status(data.get('_id'), 'complete')
     rendering_in_progress = False
