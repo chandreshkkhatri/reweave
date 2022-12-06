@@ -9,12 +9,8 @@ from src.services.video_builder.moviepy.helper import get_template
 from src.services.graphics_extensions.moviepy import ClipTemplates as ct
 from src.services.graphics_extensions.moviepy import ClipComponents as cc
 from src.commons.classes.dataclasses import VideoTemplate, ClipContent
-TITLE_CLIP = "title_clip"
-END_CLIP = "end_clip"
-CONTENT_CLIP = "content_clip"
-SUBTITLE_CLIP = "subtitle_clip"
-SCROLLING_TEXT_CLIP = "scrolling_text_clip"
-IMAGE_CLIP = "image_clip"
+from src.commons.enums import ClipType
+
 
 class VideoBuilder:
     """
@@ -58,14 +54,14 @@ class VideoBuilder:
         for clip_content in content_list:
             if clip_content.text:
                 clip_content.text = clip_content.text.strip()
-            if clip_content.type == TITLE_CLIP:
+            if clip_content.type == ClipType.TITLE_CLIP:
                 self.__add_title_clip(clip_content)
-            elif clip_content.type == END_CLIP:
+            elif clip_content.type == ClipType.END_CLIP:
                 self.__add_end_clip(clip_content)
-            elif clip_content.type == SCROLLING_TEXT_CLIP:
+            elif clip_content.type == ClipType.SCROLLING_TEXT_CLIP:
                 self.__add_scrolling_text_clip(clip_content)
             else:
-                if clip_content.type == IMAGE_CLIP:
+                if clip_content.type == ClipType.IMAGE_CLIP:
                     self.__add_image_clip(clip_content)
                 else:
                     self.__add_text_clip(clip_content)
@@ -89,9 +85,9 @@ class VideoBuilder:
         '''
         content_length, clip_duration = 0, 0
         for content in content_list:
-            if content.type == TITLE_CLIP:
+            if content.type == ClipType.TITLE_CLIP:
                 clip_duration += self.__template.title_clip_duration
-            elif content.type == END_CLIP:
+            elif content.type == ClipType.END_CLIP:
                 clip_duration += self.__template.end_clip_duration
             else:
                 content_length += 1

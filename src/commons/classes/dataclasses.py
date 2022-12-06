@@ -3,6 +3,7 @@
 from ast import Num
 from dataclasses import dataclass
 from typing import Optional
+from src.commons.enums import ClipType
 
 STANDARD_SHORT_ASPECT_RATIO=(900,1600)
 WHITE_COLOR = (0, 0, 0)
@@ -31,7 +32,7 @@ class VideoTemplate:
 @dataclass
 class ClipContent:
     """Class for Initializing a template for a video"""
-    type: str
+    type: ClipType
     text: Optional[str] = ''
     text_to_speech: Optional[bool] = False
     image_file_name: Optional[str] = ''
