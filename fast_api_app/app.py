@@ -2,11 +2,12 @@ from typing import Union
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fast_api_app.routes import ping, video_requests
+from fast_api_app.routes import ping, video_requests, video_template
 
 app = FastAPI()
 app.include_router(ping.router)
 app.include_router(video_requests.router)
+app.include_router(video_template.router)
 
 origins = [
     "http://localhost",
