@@ -47,3 +47,7 @@ def render_video_in_parallel(data):
     video_creator.create_video_file(data.get('template'), data.get('clips'), data.get('fileName'))
     video_request_model.update_render_status(data.get('_id'), 'complete')
     rendering_in_progress = False
+
+def upload_video(data):
+    """upload video"""
+    return video_request_model.update_upload_status(data.get('_id'), 'complete')
