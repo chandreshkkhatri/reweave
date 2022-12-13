@@ -10,7 +10,7 @@ sys.path.append(RESOURCES_DIR)
 from src.services.video_builder.moviepy.creator import VideoCreator
 from src.services.youtube_interface.request_methods import YouTubeClient
 from src.services.text_to_speech import pytts
-from src.flask_app.controllers.video_requests import video_request_model
+from fast_api_app.controllers.video_requests import video_request_model
 global_content = video_request_model.get_by_id(id=ObjectId('6389eb4aa70b71cd6b063715'))
 
 
