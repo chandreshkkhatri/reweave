@@ -2,6 +2,7 @@
 Main Controller until the controllers are split into separate files
 """
 import sys
+import asyncio
 from commons.config import *
 from bson.objectid import ObjectId
 
@@ -11,7 +12,7 @@ from src.services.video_builder.moviepy.creator import VideoCreator
 from src.services.youtube_interface.request_methods import YouTubeClient
 from src.services.text_to_speech import pytts
 from fast_api_app.controllers.video_requests import video_request_model
-global_content = video_request_model.get_by_id(id=ObjectId('6389eb4aa70b71cd6b063715'))
+global_content = asyncio.run(video_request_model.get_by_id(id=ObjectId('6398b6cba2566bbe19a54553')))
 
 
 def one_click_generate_and_upload():

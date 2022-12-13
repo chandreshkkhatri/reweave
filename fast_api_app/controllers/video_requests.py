@@ -1,3 +1,4 @@
+import asyncio
 from multiprocessing import Process
 from fast_api_app.model import video_request_model
 from src.services.video_builder.moviepy.creator import VideoCreator
@@ -37,8 +38,7 @@ async def render_request(id):
             return 'Another video is already being rendered'
         else:
             rendering_in_progress = True
-            process = Process(target=render_video_in_parallel, args=(data,))
-            process.start()
+            asyncio.create_task(render_video_in_parallel(data))
             return 'Video rendering started'
     return 'Video request not found'
 
