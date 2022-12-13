@@ -36,7 +36,6 @@ def cancel_video_request():
 @app.route('/get-all-video-requests', methods=['GET'])
 @cross_origin()
 def get_all_videos():
-    print('get all videos')
     """get all videos"""
     if request.method == 'GET':
         page = 0

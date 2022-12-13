@@ -1,4 +1,5 @@
 flask
+fastapi
 moviepy
 flask_cors
 pymongo

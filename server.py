@@ -1,7 +1,8 @@
 """
 Server file
 """
-from src.flask_app import app
+import uvicorn
+from fast_api_app.app import app
 
 if __name__ == '__main__':
-    app.run()
+    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
