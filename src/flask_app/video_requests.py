@@ -43,9 +43,18 @@ def get_all_videos():
         limit = 50
         return video_requests_controller.get_all_videos(page, limit)
 
-@app.route('/render-video/<id>', methods=['GET'])
+@app.route('/render-video/', methods=['POST'])
 @cross_origin()
 def render_video(id):
     """render video"""
-    if request.method == 'GET':
-        return video_requests_controller.render_video(id)
+    if request.method == 'POST':
+        data = request.json
+        return video_requests_controller.render_video(data)
+
+@app.route('/upload-video', methods=['POST'])
+@cross_origin()
+def upload_video():
+    """upload video"""
+    if request.method == 'POST':
+        data = request.json
+        return video_requests_controller.upload_video(data)
