@@ -2,4 +2,13 @@
     "python.linting.pylintEnabled": true,
     "python.linting.enabled": true,
     "python.defaultInterpreterPath": "/Users/username/opt/anaconda3",
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./src",
+        "-p",
+        "*_test.py"
+    ],
+    "python.testing.pytestEnabled": false,
+    "python.testing.unittestEnabled": true,
 }
