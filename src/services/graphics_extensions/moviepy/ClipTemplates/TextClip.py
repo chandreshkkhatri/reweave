@@ -1,11 +1,12 @@
 import moviepy.editor as mp
+from src.commons.classes.dataclasses import VideoTemplate
 from src.commons.enums.attributes import Position
 import src.services.graphics_extensions.moviepy.ClipComponents as cc
 from src.services.graphics_extensions.moviepy.ClipTemplates.BaseTemplateClip import BaseTemplateClip
 
 
 class TextClip(BaseTemplateClip):
-    def __init__(self, template, text, start_time, use_effect=None) -> None:
+    def __init__(self, template: VideoTemplate, text, start_time, use_effect=None) -> None:
         self.template = template
         if use_effect:
             w, h = self.template.aspect_ratio[0], self.template.aspect_ratio[1]

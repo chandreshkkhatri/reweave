@@ -1,4 +1,4 @@
-flask
+motor
 fastapi
 moviepy
 flask_cors

@@ -33,7 +33,7 @@ class VideoBuilder:
         """
         create video clip from content and template
         """
-        content_list = [ClipContent(content) for content in content_list]
+        content_list = [self.get_content_from_dict(content) for content in content_list]
         if self.__final_clip:
             return self.__final_clip
         else:
@@ -51,13 +51,12 @@ class VideoBuilder:
         self.__page_number = 0
         self.__add_background_color_clip()
         self.__add_background_image_clip()
-
         for clip_content in content_list:
             if clip_content.text:
                 clip_content.text = clip_content.text.strip()
             if clip_content.type == ClipType.COVER_CLIP:
                 self.__add_cover_clip(clip_content)
-            if clip_content.type == ClipType.TITLE_CLIP:
+            elif clip_content.type == ClipType.TITLE_CLIP:
                 self.__add_title_clip(clip_content)
             elif clip_content.type == ClipType.END_CLIP:
                 self.__add_end_clip(clip_content)
@@ -121,7 +120,7 @@ class VideoBuilder:
         add cover clip to video
         '''
         clip = ct.CoverClip(
-            clip_content.image_file_name, clip_content.start_time, self.__current_clip_duration).clip
+            clip_content.image_file_name, self.__current_clip_duration, clip_content.duration).clip
         self.__current_clip_duration += clip_content.duration
         self.__clips_list.append(clip)
 
@@ -157,7 +156,7 @@ class VideoBuilder:
         else:
             clip_duration = self.__template.subclip_duration
         clip: mp.TextClip = ct.TextClip(
-            self.__template, clip_content.text, clip_duration).clip
+            self.__template, clip_content.text, self.__current_clip_duration).clip
         self.__current_clip_duration += clip_duration
 
         self.__clips_list.append(clip)
@@ -224,3 +223,15 @@ class VideoBuilder:
             self.__audio_clip = mp.CompositeAudioClip(audio_clips)
         else:
             self.__audio_clip = audio_clip
+
+    def get_content_from_dict(self, content_dict: dict):
+        '''
+        get content from dict
+        '''
+        clip_content = ClipContent(
+            type=content_dict.get('type'),
+            text=content_dict.get('text'),
+            image_file_name=content_dict.get('image_file_name'),
+        )
+        return clip_content
+
