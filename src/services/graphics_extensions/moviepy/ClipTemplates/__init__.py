@@ -3,3 +3,4 @@ from src.services.graphics_extensions.moviepy.ClipTemplates.EndClip import EndCl
 from src.services.graphics_extensions.moviepy.ClipTemplates.TextClip import TextClip
 from src.services.graphics_extensions.moviepy.ClipTemplates.ImageClip import ImageClip
 from src.services.graphics_extensions.moviepy.ClipTemplates.ScrollingTextClip import ScrollingTextClip
+from src.services.graphics_extensions.moviepy.ClipTemplates.CoverClip import CoverClip

@@ -4,6 +4,7 @@ from enum import Enum, auto
 
 class ClipType(str,Enum):
     """Types of clips supported by the application."""
+    COVER_CLIP = 'cover_clip'
     TITLE_CLIP = 'title_clip'
     END_CLIP = 'end_clip'
     CONTENT_CLIP = 'content_clip'

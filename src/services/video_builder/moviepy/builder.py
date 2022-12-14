@@ -16,6 +16,7 @@ class VideoBuilder:
     """
     Build video clip from content and template
     """
+
     def __init__(self, video_template: VideoTemplate):
         '''
         initialize video builder
@@ -54,6 +55,8 @@ class VideoBuilder:
         for clip_content in content_list:
             if clip_content.text:
                 clip_content.text = clip_content.text.strip()
+            if clip_content.type == ClipType.COVER_CLIP:
+                self.__add_cover_clip(clip_content)
             if clip_content.type == ClipType.TITLE_CLIP:
                 self.__add_title_clip(clip_content)
             elif clip_content.type == ClipType.END_CLIP:
@@ -113,7 +116,16 @@ class VideoBuilder:
                 img=self.__template.background_image, duration=self.__template.duration)
             self.__clips_list.append(background_clip)
 
-    def __add_title_clip(self, clip_content):
+    def __add_cover_clip(self, clip_content: ClipContent):
+        '''
+        add cover clip to video
+        '''
+        clip = ct.CoverClip(
+            clip_content.image_file_name, clip_content.start_time, self.__current_clip_duration).clip
+        self.__current_clip_duration += clip_content.duration
+        self.__clips_list.append(clip)
+
+    def __add_title_clip(self, clip_content: ClipContent):
         '''
         add title clip to video
         '''
@@ -122,7 +134,7 @@ class VideoBuilder:
         self.__current_clip_duration += self.__template.title_clip_duration
         self.__clips_list.append(clip)
 
-    def __add_end_clip(self, clip_content):
+    def __add_end_clip(self, clip_content: ClipContent):
         '''
         add end clip to video
         '''
@@ -166,7 +178,8 @@ class VideoBuilder:
         '''
         add image clip to video
         '''
-        clip = ct.ImageClip(self.__template, clip_content.image_file_name, self.__current_clip_duration).clip
+        clip = ct.ImageClip(
+            self.__template, clip_content.image_file_name, self.__current_clip_duration).clip
         resize_factor = (self.__template.aspect_ratio[0]/clip.size[0])*3/4
         self.__current_clip_duration += self.__template.subclip_duration
         clip = clip.resize(resize_factor)

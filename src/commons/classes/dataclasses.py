@@ -28,6 +28,7 @@ class VideoTemplate:
     subclip_duration: Num=5
     aspect_ratio: tuple=STANDARD_SHORT_ASPECT_RATIO
     text_background_color=WHITE_COLOR
+    
 
 @dataclass
 class ClipContent:
@@ -38,3 +39,5 @@ class ClipContent:
     image_file_name: Optional[str] = ''
     subtitle: Optional[str] = ''
     tts_fn: Optional[str] = ''
+    duration: Optional[Num] = 5
+    start_time: Optional[Num] = 0
