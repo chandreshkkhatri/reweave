@@ -4,7 +4,7 @@ from server_modules.model.base_crud_model import BaseCrudModel
 from commons import get_db
 from pydantic import BaseModel, Field
 
-from microservices.commons.classes.py_object_id import PyObjectId
+from commons.classes.py_object_id import PyObjectId
 
 VIDEO_TEMPLATES = 'video_templates'
 ID = '_id'

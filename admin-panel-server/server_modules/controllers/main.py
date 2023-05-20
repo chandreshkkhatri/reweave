@@ -8,10 +8,6 @@ from bson.objectid import ObjectId
 
 sys.path.append(config.RESOURCES_DIR)
 
-from microservices.rendering_services.video_builder import video_builder_controller
-from microservices.youtube_interface.request_methods import YouTubeClient
-from microservices.rendering_services.text_to_speech import pytts
-from server_modules.model import video_request_model
 global_content = {
     'template': 'NIFTY500',
     'clips': [
@@ -27,31 +23,19 @@ global_content = {
 
 
 def one_click_generate_and_upload():
-    create_video_file()
-    youtube_client = YouTubeClient()
-    youtube_client.upload_video(file_name=global_content.get(
-        'fileName')+'.mp4', title='Sanskriti Test3')
+    pass
 
 
 async def create_video_file():
-    await video_builder_controller.create_video_file(
-        global_content.get('template'),
-        content=global_content.get('clips'),
-        file_name=global_content.get('fileName'),
-    )
+    pass
 
 
 def upload_video():
-    youtube_client = YouTubeClient()
-    youtube_client.upload_video(file_name=global_content.get(
-        'fileName')+'.mp4', title='Bajaj HIL')
+    pass
 
 
 def preview_video_file():
-    video_builder_controller.preview_video_file(
-        global_content.get('template'),
-        content=global_content.get('clips'),
-    )
+    pass
 
 
 def upload_video_with_retries():
@@ -67,5 +51,5 @@ def upload_video_with_retries():
 
 
 def save_audio():
-    pytts.save_audio("Hello, this is a test", "test.mp3")
+    pass
     

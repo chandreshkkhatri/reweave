@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from server_modules.controllers import video_requests_controller
 from fastapi.encoders import jsonable_encoder
 from server_modules.model.video_request import VideoRequestModel
-from microservices.commons.enums.templates import VideoTemplates
+from commons.enums.templates import VideoTemplates
 
 router = APIRouter()
 

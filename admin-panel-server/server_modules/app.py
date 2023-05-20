@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from server_modules.routes import ping, video_requests, video_template
 from commons.config import config
 from commons.mongo_init import connect_to_mongo, get_db_client, get_db
+from dotenv import load_dotenv
  
 app = FastAPI()
 app.include_router(ping.router)
@@ -25,6 +26,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    load_dotenv()
     await connect_to_mongo()
     app.mongo_client = get_db_client()
     app.mongo_db = get_db()

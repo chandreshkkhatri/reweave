@@ -1,5 +1,4 @@
 from server_modules.model.video_request import RenderStatus, UploadStatus, VideoRequestCrudModel, VideoRequestModel
-from microservices.rendering_services.video_builder import video_builder_controller
 
 rendering_in_progress = False
 ID = '_id'
@@ -45,21 +44,12 @@ async def render_request(id: str):
 
 async def render_video_in_parallel(data: VideoRequestModel):
     """render video thread"""
-    try:
-        global rendering_in_progress
-        await video_builder_controller.create_video_file(
-            data.template, data.clips, data.fileName)
-        video_request_crud_model = VideoRequestCrudModel()
-        await video_request_crud_model.update_render_status(str(data.id), RenderStatus.complete.value)
-    except Exception as e:
-        print(e)
-    rendering_in_progress = False
+    pass
 
 
 async def upload_video(data: VideoRequestModel):
     """upload video"""
-    video_request_crud_model = VideoRequestCrudModel()
-    return await video_request_crud_model.update_upload_status(data.id, UploadStatus.complete.value)
+    pass
 
 
 async def delete_request(id: str):
