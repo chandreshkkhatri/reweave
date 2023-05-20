@@ -1,0 +1,19 @@
+# python code
+/.vs
+/build
+/res
+/uploads
+/t_axis_media.egg-info
+# /ui/azure-ttk-theme
+/gapi_cred.json
+/client_secrets.json
+**/config.local.ini
+**/config.development.ini
+**/config.production.ini
+**/config.ini
+*.pyc
+*.mp3
+*.db
+*.rdb
+/.cache
+# electron code
