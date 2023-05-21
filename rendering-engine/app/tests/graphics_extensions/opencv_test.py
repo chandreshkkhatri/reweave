@@ -2,7 +2,7 @@ import unittest
 import sys
 sys.path.append('......')
 
-from app.rendering_services.graphics_extensions.opencv import main
+from app.services.rendering_services.graphics_extensions.opencv import main
 
 class TestOpenCVGraphics(unittest.TestCase):
     

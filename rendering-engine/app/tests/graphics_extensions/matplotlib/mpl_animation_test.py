@@ -1,6 +1,6 @@
 import unittest
 
-from app.rendering_services.graphics_extensions.matplotlib.mpl_animation import MPLAnimation
+from app.services.rendering_services.graphics_extensions.matplotlib.mpl_animation import MPLAnimation
 
 class TestMatplotlibGraphics(unittest.TestCase):
     def test_animator(self):

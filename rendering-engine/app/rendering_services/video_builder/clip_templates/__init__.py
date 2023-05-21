@@ -1,6 +1,0 @@
-from app.rendering_services.video_builder.clip_templates.TitleClip import TitleClip
-from app.rendering_services.video_builder.clip_templates.EndClip import EndClip
-from app.rendering_services.video_builder.clip_templates.TextClip import TextClip
-from app.rendering_services.video_builder.clip_templates.ImageClip import ImageClip
-from app.rendering_services.video_builder.clip_templates.ScrollingTextClip import ScrollingTextClip
-from app.rendering_services.video_builder.clip_templates.CoverClip import CoverClip

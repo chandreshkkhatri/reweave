@@ -1,6 +1,6 @@
 import unittest
 
-from app.rendering_services.graphics_extensions.matplotlib.mpl_make_frame import MPLMakeFrame
+from app.services.rendering_services.graphics_extensions.matplotlib.mpl_make_frame import MPLMakeFrame
 
 class TestMatplotlibGraphics(unittest.TestCase):
     def test_make_frame(self):

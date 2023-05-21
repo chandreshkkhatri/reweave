@@ -1,5 +1,5 @@
 import unittest
-from app.rendering_services.video_builder import video_builder_controller
+from app.services.rendering_services.video_builder import video_builder_controller
 test_template = 'TEST_TEMPLATE'
 test_content = [{
     "type": "cover_clip",
