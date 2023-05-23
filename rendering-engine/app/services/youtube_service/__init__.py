@@ -1,1 +1,1 @@
-from app.services.youtube_service.request_methods import *
+from app.services.youtube_service.youtube_service import *

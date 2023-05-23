@@ -16,7 +16,7 @@ hname = 'yt_session'
 yt_session_token_key = 'yt_session_token'
 
 
-class YouTubeClient:
+class YouTubeService:
     def __init__(self):
         # os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = '1'
         # os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
