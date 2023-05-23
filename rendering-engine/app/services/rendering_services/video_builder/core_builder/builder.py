@@ -3,11 +3,9 @@ Build Video from Content and template
 """
 from typing import List
 import moviepy.editor as mp
-from moviepy.audio.fx import all as afx
 from app.services.rendering_services.text_to_speech import pytts
-from app.services.rendering_services.video_builder.core_builder.helper import get_template
 from app.services.rendering_services.video_builder import clip_templates as ct
-from app.services.rendering_services.graphics_extensions.moviepy import ClipComponents as cc
+from app.components import clip_components as cc
 from app.commons.classes.dataclasses import VideoTemplate, ClipContent
 from app.commons.enums import ClipType
 
@@ -22,25 +20,23 @@ class VideoBuilder:
         initialize video builder
         '''
         self.__audio_clip: mp.AudioClip = None
-    
-    async def get_video_clip(self, content_list: List, video_template: VideoTemplate, use_terminal_audio=False):
-        """
-        create video clip from content and template
-        """
-        self.__template = await get_template(video_template)
-        content_list = [self.get_content_from_dict(
-            content) for content in content_list]
-        return self.__build_video(content_list, use_terminal_audio)
-
-    def __build_video(self, content_list: List[ClipContent], use_terminal_audio=False):
-        '''
-        build video from content list
-        '''
-        self.__set_content_attributes(content_list=content_list)
+        self.__template: VideoTemplate = None
         self.__clips_list = []
         self.__text_to_speech_clips: List[mp.AudioClip] = []
         self.__current_clip_duration = 0
         self.__page_number = 0
+        self.__content_length = 0
+
+    def build_video(self, content_list: List[ClipContent], template: VideoTemplate, use_terminal_audio=False):
+        '''
+        build video from content list
+        '''
+        self.__clips_list = []
+        self.__text_to_speech_clips: List[mp.AudioClip] = []
+        self.__template: VideoTemplate = template
+        self.__current_clip_duration = 0
+        self.__page_number = 0
+        self.__set_content_attributes(content_list=content_list)
         self.__add_background_color_clip()
         self.__add_background_image_clip()
         for clip_content in content_list:
@@ -134,8 +130,8 @@ class VideoBuilder:
         if clip_content.text_to_speech:
             pytts.save_audio(clip_content.text, clip_content.tts_fn)
             audio_clip = mp.AudioFileClip(clip_content.tts_fn)
-            audio_clip: mp.AudioClip = afx.volumex(audio_clip, 0.7)
-            audio_clip: mp.AudioClip = audio_clip.set_start(self.__current_clip_duration)
+            audio_clip: mp.AudioClip = audio_clip.set_start(
+                self.__current_clip_duration)
             self.__text_to_speech_clips.append(audio_clip)
             clip_duration = audio_clip.duration
         else:
@@ -192,7 +188,7 @@ class VideoBuilder:
         '''
         audio_clip = cc.AudioClip(
             self.__template, use_terminal_audio, self.__current_clip_duration).clip
-        if len(self.__text_to_speech_clips):
+        if len(self.__text_to_speech_clips) > 0:
             audio_clips = []
             last_clip_end = 0
             for clip in self.__text_to_speech_clips:
@@ -200,22 +196,9 @@ class VideoBuilder:
                     audio_clips.append(audio_clip.subclip(
                         last_clip_end, clip.start))
                 audio_subclip = audio_clip.subclip(clip.start, clip.end)
-                audio_subclip = afx.volumex(
-                    audio_subclip, 0.3).set_start(clip.start)
                 audio_subclip = audio_subclip.set_end(clip.end)
                 audio_clips.extend([audio_subclip, clip])
                 last_clip_end = clip.end
             self.__audio_clip = mp.CompositeAudioClip(audio_clips)
         else:
             self.__audio_clip = audio_clip
-
-    def get_content_from_dict(self, content_dict: dict):
-        '''
-        get content from dict
-        '''
-        clip_content = ClipContent(
-            type=content_dict.get('type'),
-            text=content_dict.get('text'),
-            image_file_name=content_dict.get('image_file_name'),
-        )
-        return clip_content

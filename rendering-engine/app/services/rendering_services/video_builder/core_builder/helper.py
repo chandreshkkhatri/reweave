@@ -1,6 +1,8 @@
-from server_modules.model.video_template import VideoTemplateCrudModel, VideoTemplateModel
-from commons.config import config
-from server_modules.model import video_template_model
+"""
+This file contains helper functions for the core builder
+"""
+from app.models.VideoTemplate import VideoTemplateModel, VideoTemplateCrudModel
+from app.commons.config import config
 from app.commons.classes.dataclasses import VideoTemplate
 from app.commons.enums.attributes import Colors
 

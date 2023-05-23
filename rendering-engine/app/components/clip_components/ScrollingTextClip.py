@@ -1,6 +1,6 @@
 import moviepy.editor as mp
 from app.commons.enums.attributes import Position, TextClipMethod
-from app.services.rendering_services.graphics_extensions.moviepy.ClipComponents.BaseComponentClip import BaseComponentClip
+from app.components.clip_components.base_clip_component import BaseComponentClip
 
 
 class ScrollingTextClip(BaseComponentClip):

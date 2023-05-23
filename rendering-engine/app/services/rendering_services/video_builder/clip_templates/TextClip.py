@@ -1,7 +1,7 @@
 import moviepy.editor as mp
 from app.commons.classes.dataclasses import VideoTemplate
 from app.commons.enums.attributes import Position
-import app.services.rendering_services.graphics_extensions.moviepy.ClipComponents as cc
+import app.components.clip_components as cc
 from app.services.rendering_services.video_builder.clip_templates.BaseTemplateClip import BaseTemplateClip
 
 

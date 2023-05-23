@@ -1,6 +1,6 @@
 import moviepy.editor as mp
-import app.services.rendering_services.graphics_extensions.moviepy.ClipComponents as cc
-from app.services.rendering_services.graphics_extensions.moviepy.ClipComponents.BaseComponentClip import BaseComponentClip
+import app.components.clip_components as cc
+from app.components.clip_components.base_clip_component import BaseComponentClip
 
 
 class SubtitleClip(BaseComponentClip):

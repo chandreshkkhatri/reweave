@@ -1,6 +1,6 @@
 import moviepy.editor as mp
 from app.services.rendering_services.video_builder.clip_templates.BaseTemplateClip import BaseTemplateClip
-from commons.config import config
+from app.commons.config import config
 
 
 class CoverClip(BaseTemplateClip):
