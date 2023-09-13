@@ -1,0 +1,15 @@
+moviepy
+matplotlib>=3.7.1
+numpy>=1.24.3
+scipy
+pika
+motor>=3.1.2
+google-api-python-client
+google-auth-oauthlib
+redis
+pylint
+tornado
+pydantic
+python-dotenv
+pymongo=4.3.3
+pytest
