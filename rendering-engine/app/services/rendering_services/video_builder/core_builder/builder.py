@@ -2,12 +2,13 @@
 Build Video from Content and template
 """
 from typing import List
+
 import moviepy.editor as mp
+from app.commons.classes.dataclasses import ClipContent, VideoTemplate
+from app.commons.enums import ClipType
+from app.components import clip_components as cc
 from app.services.rendering_services.text_to_speech import pytts
 from app.services.rendering_services.video_builder import clip_templates as ct
-from app.components import clip_components as cc
-from app.commons.classes.dataclasses import VideoTemplate, ClipContent
-from app.commons.enums import ClipType
 
 
 class VideoBuilder:
@@ -16,9 +17,9 @@ class VideoBuilder:
     """
 
     def __init__(self):
-        '''
-        initialize video builder
-        '''
+        """
+        Initialize the VideoBuilder class.
+        """
         self.__audio_clip: mp.AudioClip = None
         self.__template: VideoTemplate = None
         self.__clips_list = []
@@ -27,10 +28,15 @@ class VideoBuilder:
         self.__page_number = 0
         self.__content_length = 0
 
-    def build_video(self, content_list: List[ClipContent], template: VideoTemplate, use_terminal_audio=False):
-        '''
+    def build_video(
+        self,
+        content_list: List[ClipContent],
+        template: VideoTemplate,
+        use_terminal_audio=False,
+    ):
+        """
         build video from content list
-        '''
+        """
         self.__clips_list = []
         self.__text_to_speech_clips: List[mp.AudioClip] = []
         self.__template: VideoTemplate = template
@@ -61,104 +67,123 @@ class VideoBuilder:
         composed_video: mp.VideoClip = mp.CompositeVideoClip(self.__clips_list)
         composed_video: mp.VideoClip = composed_video.set_fps(24)
         self.__set_audio_clip(use_terminal_audio)
-        composed_video: mp.VideoClip = composed_video.set_audio(
-            self.__audio_clip)
+        composed_video: mp.VideoClip = composed_video.set_audio(self.__audio_clip)
         final_clip: mp.VideoClip = composed_video.subclip(
-            0, self.__current_clip_duration)
+            0, self.__current_clip_duration
+        )
 
         return final_clip
 
     def __set_content_attributes(self, content_list: List[ClipContent]):
-        '''
+        """
         set content attributes
-        '''
+        """
         content_length = 0
         for content in content_list:
-            if content.type == ClipType.TEXT_CLIP or content.type == ClipType.IMAGE_CLIP or content.type == ClipType.SCROLLING_TEXT_CLIP:
+            if (
+                content.type == ClipType.TEXT_CLIP
+                or content.type == ClipType.IMAGE_CLIP
+                or content.type == ClipType.SCROLLING_TEXT_CLIP
+            ):
                 content_length += 1
         self.__content_length = content_length
 
     def __add_background_color_clip(self):
-        '''
+        """
         add background color clip to video
-        '''
-        bg_color_clip = mp.ColorClip(size=self.__template.aspect_ratio,
-                                     color=self.__template.background_color,
-                                     )
+        """
+        bg_color_clip = mp.ColorClip(
+            size=self.__template.aspect_ratio,
+            color=self.__template.background_color,
+        )
         self.__clips_list.append(bg_color_clip)
 
     def __add_background_image_clip(self):
-        '''
+        """
         add background image clip to video
-        '''
+        """
         if self.__template.use_background_image:
             background_clip = mp.ImageClip(
-                img=self.__template.background_image, duration=self.__template.duration)
+                img=self.__template.background_image, duration=self.__template.duration
+            )
             self.__clips_list.append(background_clip)
 
     def __add_cover_clip(self, clip_content: ClipContent):
-        '''
+        """
         add cover clip to video
-        '''
+        """
         clip = ct.CoverClip(
-            self.__template, clip_content, self.__current_clip_duration).clip
+            self.__template, clip_content, self.__current_clip_duration
+        ).clip
         self.__current_clip_duration += clip_content.duration
         self.__clips_list.append(clip)
 
     def __add_title_clip(self, clip_content: ClipContent):
-        '''
+        """
         add title clip to video
-        '''
+        """
         clip = ct.TitleClip(
-            self.__template, clip_content.text, self.__current_clip_duration).clip
+            self.__template, clip_content.text, self.__current_clip_duration
+        ).clip
         self.__current_clip_duration += self.__template.title_clip_duration
         self.__clips_list.append(clip)
 
     def __add_end_clip(self, clip_content: ClipContent):
-        '''
+        """
         add end clip to video
-        '''
+        """
         clip = ct.EndClip(
-            self.__template, clip_content.text, self.__current_clip_duration, clip_content.duration).clip
+            self.__template,
+            clip_content.text,
+            self.__current_clip_duration,
+            clip_content.duration,
+        ).clip
         self.__current_clip_duration += clip_content.duration
         self.__clips_list.append(clip)
 
     def __add_text_clip(self, clip_content: ClipContent):
-        '''
+        """
         add text clip to video
-        '''
+        """
         if clip_content.text_to_speech:
             pytts.save_audio(clip_content.text, clip_content.tts_fn)
             audio_clip = mp.AudioFileClip(clip_content.tts_fn)
             audio_clip: mp.AudioClip = audio_clip.set_start(
-                self.__current_clip_duration)
+                self.__current_clip_duration
+            )
             self.__text_to_speech_clips.append(audio_clip)
             clip_duration = audio_clip.duration
         else:
             clip_duration = clip_content.duration
         clip: mp.TextClip = ct.TextClip(
-            self.__template, clip_content.text, self.__current_clip_duration, clip_content.duration).clip
+            self.__template,
+            clip_content.text,
+            self.__current_clip_duration,
+            clip_content.duration,
+        ).clip
         self.__add_page_number_clip(clip_duration)
         self.__current_clip_duration += clip_duration
         self.__clips_list.append(clip)
 
     def __add_scrolling_text_clip(self, clip_content: ClipContent):
-        '''
+        """
         add scrolling text clip to video
-        '''
+        """
         scrolling_clip = ct.ScrollingTextClip(
-            self.__template, clip_content, self.__current_clip_duration)
+            self.__template, clip_content, self.__current_clip_duration
+        )
         self.__add_page_number_clip(scrolling_clip.duration)
         self.__current_clip_duration += scrolling_clip.duration
         self.__clips_list.append(scrolling_clip.clip)
 
     def __add_image_clip(self, clip_content: ClipContent):
-        '''
+        """
         add image clip to video
-        '''
+        """
         clip = ct.ImageClip(
-            self.__template, clip_content.image_file_name, self.__current_clip_duration).clip
-        resize_factor = (self.__template.aspect_ratio[0]/clip.size[0])*3/4
+            self.__template, clip_content.image_file_name, self.__current_clip_duration
+        ).clip
+        resize_factor = (self.__template.aspect_ratio[0] / clip.size[0]) * 3 / 4
         duration = self.__template.subclip_duration
         self.__add_page_number_clip(duration)
         self.__current_clip_duration += duration
@@ -166,35 +191,41 @@ class VideoBuilder:
         self.__clips_list.append(clip)
 
     def __add_page_number_clip(self, duration):
-        '''
+        """
         add page number clip to video
-        '''
+        """
         page_number_clip = cc.PageNumberClip(
-            self.__template, self.__page_number, self.__content_length, self.__current_clip_duration, duration).clip
+            self.__template,
+            self.__page_number,
+            self.__content_length,
+            self.__current_clip_duration,
+            duration,
+        ).clip
         self.__page_number = self.__page_number + 1
         self.__clips_list.append(page_number_clip)
 
     def __add_subtitle_clip(self, clip_content: ClipContent):
-        '''
+        """
         add subtitle clip to video
-        '''
+        """
         clip = cc.SubtitleClip(
-            self.__template, clip_content.subtitle, self.__current_clip_duration).clip
+            self.__template, clip_content.subtitle, self.__current_clip_duration
+        ).clip
         self.__clips_list.append(clip)
 
     def __set_audio_clip(self, use_terminal_audio):
-        '''
+        """
         set audio clip to video
-        '''
+        """
         audio_clip = cc.AudioClip(
-            self.__template, use_terminal_audio, self.__current_clip_duration).clip
+            self.__template, use_terminal_audio, self.__current_clip_duration
+        ).clip
         if len(self.__text_to_speech_clips) > 0:
             audio_clips = []
             last_clip_end = 0
             for clip in self.__text_to_speech_clips:
                 if clip.start > last_clip_end:
-                    audio_clips.append(audio_clip.subclip(
-                        last_clip_end, clip.start))
+                    audio_clips.append(audio_clip.subclip(last_clip_end, clip.start))
                 audio_subclip = audio_clip.subclip(clip.start, clip.end)
                 audio_subclip = audio_subclip.set_end(clip.end)
                 audio_clips.extend([audio_subclip, clip])
