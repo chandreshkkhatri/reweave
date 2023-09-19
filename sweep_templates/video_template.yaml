@@ -1,0 +1,20 @@
+# Sweep template for video templates
+
+# Specify the video details
+video:
+  title: Video Title
+  description: Video Description
+  duration: 60
+
+# Specify the video format, resolution, and encoding settings
+format:
+  type: mp4
+  resolution: 1920x1080
+  encoding:
+    codec: h264
+    bitrate: 5000k
+
+# Specify any additional video processing steps
+processing:
+  - watermark: path/to/watermark.png
+  - filter: grayscale
