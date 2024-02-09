@@ -22,7 +22,7 @@ def generate_image(prompt):
     return image_url
 
 
-def generate_audio_from_clip(text):
+def generate_audio_from_text(text):
     audio = client.audio.speech.create(
         model="tts-1",
         voice="alloy",
