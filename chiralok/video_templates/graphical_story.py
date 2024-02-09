@@ -7,7 +7,7 @@ import requests
 import moviepy.editor as mp
 from pathlib import Path
 
-from videofy.utils.fs_utils import write_script_to_file
+from chiralok.utils.fs_utils import write_script_to_file
 from ..ai.openai_service import generate_audio_from_text, generate_image, client
     
 

@@ -1,7 +1,7 @@
 """
 Create a monologue video template
 """
-from videofy.utils.fs_utils import write_script_to_file
+from chiralok.utils.fs_utils import write_script_to_file
 from ..ai.openai_service import client
 
 
