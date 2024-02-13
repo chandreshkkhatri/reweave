@@ -8,7 +8,7 @@ import moviepy.editor as mp
 from pathlib import Path
 
 from chiralok.utils.fs_utils import write_script_to_file
-from ..ai.openai_service import generate_audio_from_text, generate_image, client
+from ..ai.openai_service import generate_audio, generate_image, client
     
 
 OUTPUT_DIR = Path('data/output/graphical_story')
@@ -128,9 +128,9 @@ class GraphicalStoryTemplate:
         visual_style_description = script.get("visual_style_description")
         characters = script.get("characters")
             
-        for i, scene in enumerate(scene_list):
-            self.generate_scene_image(topic, i, title, summary, visual_style_description, characters, scene)
-            self.generate_scene_audio(i, scene, topic)
+        for idx, scene in enumerate(scene_list):
+            self.generate_scene_image(topic, idx, title, summary, visual_style_description, characters, scene)
+            self.generate_scene_audio(idx, scene, topic)
         
     def generate_scene_image(self, topic, panel_number, title, summary, visual_style_description, characters, scene):
         """
@@ -161,7 +161,7 @@ class GraphicalStoryTemplate:
         if scene_narration is None:
             return
 
-        audio = generate_audio_from_text(scene_narration)
+        audio = generate_audio(scene_narration)
         audio.stream_to_file(f"{OUTPUT_DIR}/{topic}/{panel_number+1}.mp3")
             
 
@@ -173,12 +173,12 @@ class GraphicalStoryTemplate:
         start = 0
         scene_list = script.get("scene_list")
         
-        for i, clip_content in enumerate(scene_list):
+        for idx, clip_content in enumerate(scene_list):
             image_clip = mp.ImageClip(
-                f"data/output/{self.topic}/{i+1}-{clip_content['name']}.png",
+                f"data/output/{self.topic}/{idx+1}-{clip_content['name']}.png",
             )
             audio_clip = mp.AudioFileClip(
-                f"data/output/{self.topic}/{i+1}-{clip_content['name']}.mp3"
+                f"data/output/{self.topic}/{idx+1}-{clip_content['name']}.mp3"
             )
             duration = audio_clip.duration
             image_clip = image_clip.set_start(start)
