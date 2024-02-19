@@ -8,12 +8,13 @@ import moviepy.editor as mp
 from pathlib import Path
 
 from chiralok.utils.fs_utils import write_script_to_file
+from chiralok.video_builder_workflow.base_workflow import BaseWorkflow
 from ..ai.openai_service import generate_audio, generate_image, client
     
 
 OUTPUT_DIR = Path('data/output/graphical_story')
 
-class GraphicalStoryTemplate:
+class GraphicalStoryWorkflow(BaseWorkflow):
     
     def __init__(self, script=None, topic=None):
         self.script = script
@@ -121,7 +122,7 @@ class GraphicalStoryTemplate:
         """
         write_script_to_file(script, 'script.json', f'{OUTPUT_DIR}/{self.topic[:20]}')
 
-    def generate_raw_footages(self, script, topic):
+    def generate_footages(self, script, topic):
         scene_list = script.get("scene_list")
         title = script.get("title")
         summary = script.get("story_summary")
