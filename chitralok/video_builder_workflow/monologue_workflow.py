@@ -1,8 +1,8 @@
 """
 Create a monologue video template
 """
-from chiralok.utils.fs_utils import write_script_to_file
-from chiralok.video_builder_workflow.base_workflow import BaseWorkflow
+from chitralok.utils.fs_utils import write_script_to_file
+from chitralok.video_builder_workflow.base_workflow import BaseWorkflow
 from ..ai.openai_service import client
 
 
