@@ -6,7 +6,7 @@ authors = ["Chandresh Kumar <chandresh.code@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 openai = "^1.12.0"
 moviepy = "^1.0.3"
 requests = "^2.31.0"

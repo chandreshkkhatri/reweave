@@ -7,7 +7,7 @@ import requests
 import moviepy.editor as mp
 from pathlib import Path
 
-from reweave.utils.fs_utils import write_script_to_file
+from reweave.utils.fs_utils import read_script_from_file, write_script_to_file
 from reweave.video_builder_workflow.base_workflow import BaseWorkflow
 from ..ai.openai_service import generate_audio, generate_image, client
     
@@ -23,13 +23,13 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         self.audio = []
         
         
-    def generate_script(self, topic):
+    def generate_script(self):
         """
         Create a video script
         """
         
         prompt = f"""
-                You are a helpful assistant. Create a short script for the topic: {topic}
+                You are a helpful assistant. Create a short script for the topic: {self.topic}
                 
                 Provide detailed character descriptions for each character including their name, age, gender, description, their personality, and any other relevant information.
                 Also provide a very detailed description of their looks which can be used to independently create similar images from various artists for different panels.
@@ -109,20 +109,21 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             script = response.choices[0].message.function_call.arguments
             if script:
                 self.script = script
-                self.write_script_to_file(script)
+                self._write_script_to_file(script)
                 return json.loads(script)
 
         except Exception as e:
             print(f"An error occurred: {e}")
 
 
-    def write_script_to_file(self, script):
+    def _write_script_to_file(self, script):
         """
         Write the script to a file
         """
         write_script_to_file(script, 'script.json', f'{OUTPUT_DIR}/{self.topic[:20]}')
 
-    def generate_footages(self, script, topic):
+    def generate_footages(self):
+        script = read_script_from_file('script.json', f'data/output/graphical_story/{self.topic[:20]}')
         scene_list = script.get("scene_list")
         title = script.get("title")
         summary = script.get("story_summary")
@@ -130,10 +131,10 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         characters = script.get("characters")
             
         for idx, scene in enumerate(scene_list):
-            self.generate_scene_image(topic, idx, title, summary, visual_style_description, characters, scene)
-            self.generate_scene_audio(idx, scene, topic)
+            self._generate_scene_image(self.topic, idx, title, summary, visual_style_description, characters, scene)
+            self._generate_scene_audio(idx, scene, self.topic)
         
-    def generate_scene_image(self, topic, panel_number, title, summary, visual_style_description, characters, scene):
+    def _generate_scene_image(self, topic, panel_number, title, summary, visual_style_description, characters, scene):
         """
         Create an image
         """
@@ -154,7 +155,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         image = requests.get(image_url).content
         Path(f"{OUTPUT_DIR}/{topic}/{panel_number+1}.png").write_bytes(image)
 
-    def generate_scene_audio(self, panel_number, scene, topic):
+    def _generate_scene_audio(self, panel_number, scene, topic):
         """
         Create an audio
         """
@@ -166,20 +167,21 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         audio.stream_to_file(f"{OUTPUT_DIR}/{topic}/{panel_number+1}.mp3")
             
 
-    def generate_video(self, script):
+    def generate_final_video(self):
         """
         Create a video
         """
         video_clips = []
         start = 0
+        script = read_script_from_file('script.json', f'data/output/graphical_story/{self.topic[:20]}')
         scene_list = script.get("scene_list")
         
         for idx, clip_content in enumerate(scene_list):
             image_clip = mp.ImageClip(
-                f"data/output/{self.topic}/{idx+1}-{clip_content['name']}.png",
+                f"{OUTPUT_DIR}/{self.topic}/{idx+1}.png",
             )
             audio_clip = mp.AudioFileClip(
-                f"data/output/{self.topic}/{idx+1}-{clip_content['name']}.mp3"
+                f"{OUTPUT_DIR}/{self.topic}/{idx+1}.mp3"
             )
             duration = audio_clip.duration
             image_clip = image_clip.set_start(start)
@@ -192,4 +194,10 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             
         video = mp.CompositeVideoClip(video_clips)
         
-        video.write_videofile(f"data/output/{self.topic}/final_video.mp4", fps=24, remove_temp=False)
+        video.write_videofile(f"{OUTPUT_DIR}/{self.topic}/final_video.mp4", fps=24, remove_temp=False)
+        
+        
+    def generate_video(self):
+        self.generate_script()
+        self.generate_footages()
+        self.generate_final_video()
