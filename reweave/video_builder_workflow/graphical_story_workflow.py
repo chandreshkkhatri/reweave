@@ -7,8 +7,8 @@ import requests
 import moviepy.editor as mp
 from pathlib import Path
 
-from chitralok.utils.fs_utils import write_script_to_file
-from chitralok.video_builder_workflow.base_workflow import BaseWorkflow
+from reweave.utils.fs_utils import write_script_to_file
+from reweave.video_builder_workflow.base_workflow import BaseWorkflow
 from ..ai.openai_service import generate_audio, generate_image, client
     
 

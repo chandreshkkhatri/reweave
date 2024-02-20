@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "chitralok"
+name = "reweave"
 version = "0.1.0"
 description = ""
 authors = ["Chandresh Kumar <chandresh.code@gmail.com>"]
