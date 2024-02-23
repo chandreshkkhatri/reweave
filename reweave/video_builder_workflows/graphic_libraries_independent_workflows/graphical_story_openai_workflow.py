@@ -8,9 +8,9 @@ import moviepy.editor as mp
 from pathlib import Path
 
 from reweave.utils.fs_utils import read_script_from_file, write_script_to_file
-from reweave.video_builder_workflows.theme_based_integrated_workflows.base_workflow import BaseWorkflow
+from .base_workflow import BaseWorkflow
 from ...ai.openai_service import generate_audio, generate_image, client
-    
+
 
 OUTPUT_DIR = Path('data/output/graphical_story')
 
