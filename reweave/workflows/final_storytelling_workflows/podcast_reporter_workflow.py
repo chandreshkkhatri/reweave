@@ -1,8 +1,10 @@
 """
 Takes in a link to a podcast and creates a summary video of the podcast
 """
-from reweave.workflows.final_storytelling_workflows.base_workflow import BaseWorkflow
+from youtube_transcript_api import YouTubeTranscriptApi
 
+from reweave.workflows.final_storytelling_workflows.base_workflow import BaseWorkflow
+from reweave.ai.openai_service import client
 
 class PodcastReporterWorkflow(BaseWorkflow):
     """
@@ -10,12 +12,24 @@ class PodcastReporterWorkflow(BaseWorkflow):
     """
     def __init__(self, podcast_link=None):
         self.podcast_link = podcast_link
+        self.transcript = None
+        self.transcript_summary = None
 
     def _get_transcript(self):
         """
         Get the transcript of the podcast
         """
-        pass
+        self.transcript = YouTubeTranscriptApi.get_transcript(self.podcast_link)
+        transcript_string = ' '.join([item['text'] for item in self.transcript])
+        response = client.chat.completions.create(
+            model="gpt-4-1106-preview",  # You can change the model version if needed
+            messages=[{
+                "role": "system",  
+                "content": f"Summarize the following transcript from youtube video: {transcript_string}"
+            }],
+        )
+        transcript_summary = response.choices[0].message['content']
+        self.transcript_summary = transcript_summary
     
     def _get_audio(self):
         """
@@ -39,7 +53,7 @@ class PodcastReporterWorkflow(BaseWorkflow):
         """
         Generate a summary of the podcast
         """
-        pass
+        
     
     def _generate_summary_video(self):
         """
