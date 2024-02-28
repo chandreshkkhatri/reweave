@@ -21,20 +21,69 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         self.topic = topic
         self.footages = []
         self.audio = []
-        
+        self.output_dir = f'{OUTPUT_DIR}/{self.topic[:20]}'
         
     def generate_script(self):
         """
         Create a video script
         """
+        self._generate_story()
+        self._generate_script()
         
+
+    def _generate_story(self):
         prompt = f"""
-                You are a helpful assistant. Create a short script for the topic: {self.topic}
+                You are a helpful assistant writer. Write the story for the following topic: {self.topic}
+                
+                Provide a good narrative structure for the story describing the plot, characters, and setting.
+                
+                Follow the following guidelines to create a good narrative:
+                1. Opener:
+                The opener establishes your story’s setting, premise, plot, and character roles. A compelling opener teases readers with what challenges or conflicts are ahead.
+
+                2. Incident
+                Stage two is the story’s incident. As the catalyst or instigating force that compels your main character to act, the incident establishes the conflict that sets the stage for the third phase of a story’s structure. 
+
+                3. Crisis
+                As a consequence of the incident, the story’s crisis is an unfolding of the primary conflict or series of issues. A crisis must be realistic and related to the plot. If the character experiences more than one crisis, each should build on the last, heightening the sense of danger and tension.
+
+                4. Climax
+                Stage four is the climax or the height of the crisis. Depending on your perspective, you can also think of the climax as the bottom of your action. At this stage, the character has hit rock bottom in the storyline–hopeless and seemingly out of options. The climax is not the end of the book but the beginning of the end.
+
+                5. Ending
+                The final stage of the story structure is the ending or close. Success or failure are both valid outcomes, but the ending should provide a conclusion and resolution to your story. The ending should close the loop on all crises, plot twists, and loose ends but could also leave the reader wanting more. 
+            """
+        try:
+            response = client.chat.completions.create(
+                    model="gpt-4-1106-preview",  # You can change the model version if needed
+                    messages=[{
+                        "role": "system",  
+                        "content": prompt
+                    }],
+                )
+            story = response.choices[0].message.content
+
+            if story:
+                self.story = story
+                self._write_to_file(story, 'story.txt')
+                return json.loads(story)
+
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+        
+        
+    
+    def _generate_script(self):
+        prompt = f"""
+                You are a helpful assistant. Use the story provided below to write a script.
                 
                 Provide detailed character descriptions for each character including their name, age, gender, description, their personality, and any other relevant information.
                 Also provide a very detailed description of their looks which can be used to independently create similar images from various artists for different panels.
                 For each scene, provide a background description, a narration, a list of characters in the scene, and a list of dialogues.
                 Also describe the bodylanguage of characters in the description.
+                
+                The story is as follows: {self.story}
             """
         functions = [
             {
@@ -109,18 +158,18 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             script = response.choices[0].message.function_call.arguments
             if script:
                 self.script = script
-                self._write_script_to_file(script)
+                self._write_to_file(script, 'script.json')
                 return json.loads(script)
 
         except Exception as e:
             print(f"An error occurred: {e}")
 
 
-    def _write_script_to_file(self, script):
+    def _write_to_file(self, content, filename):
         """
         Write the script to a file
         """
-        write_script_to_file(script, 'script.json', f'{OUTPUT_DIR}/{self.topic[:20]}')
+        write_script_to_file(content, filename, self.output_dir)
 
     def generate_footages(self):
         script = read_script_from_file('script.json', f'data/output/graphical_story/{self.topic[:20]}')
@@ -153,7 +202,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         """
         image_url = generate_image(prompt)
         image = requests.get(image_url).content
-        Path(f"{OUTPUT_DIR}/{topic}/{panel_number+1}.png").write_bytes(image)
+        Path(f"{self.output_dir}/{panel_number+1}.png").write_bytes(image)
 
     def _generate_scene_audio(self, panel_number, scene, topic):
         """
@@ -164,7 +213,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             return
 
         audio = generate_audio(scene_narration)
-        audio.stream_to_file(f"{OUTPUT_DIR}/{topic}/{panel_number+1}.mp3")
+        audio.stream_to_file(f"{self.output_dir}/{panel_number+1}.mp3")
             
 
     def generate_final_video(self):
@@ -178,10 +227,10 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         
         for idx, clip_content in enumerate(scene_list):
             image_clip = mp.ImageClip(
-                f"{OUTPUT_DIR}/{self.topic}/{idx+1}.png",
+                f"{self.output_dir}/{idx+1}.png",
             )
             audio_clip = mp.AudioFileClip(
-                f"{OUTPUT_DIR}/{self.topic}/{idx+1}.mp3"
+                f"{self.output_dir}/{idx+1}.mp3"
             )
             duration = audio_clip.duration
             image_clip = image_clip.set_start(start)
@@ -194,7 +243,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             
         video = mp.CompositeVideoClip(video_clips)
         
-        video.write_videofile(f"{OUTPUT_DIR}/{self.topic}/final_video.mp4", fps=24, remove_temp=False)
+        video.write_videofile(f"{self.output_dir}/final_video.mp4", fps=24, remove_temp=False)
         
         
     def generate_video(self):
