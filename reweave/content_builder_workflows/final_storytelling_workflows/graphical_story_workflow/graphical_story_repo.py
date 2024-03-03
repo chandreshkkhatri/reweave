@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from reweave.utils.fs_utils import read_content_from_file, write_content_to_file
+from .commons import Script, Scene
 
 OUTPUT_DIR = Path('data/output/graphical_story')
 STORY_FILENAME = 'story.txt'
@@ -47,7 +48,8 @@ class GraphicalStoryRepo:
         output_dir = f'{OUTPUT_DIR}/{content_id}'
         
         script = json.loads(read_content_from_file(SCRIPT_FILENAME, f'{output_dir}'))
-        return script
+        script_model_instance = Script.model_validate(script)
+        return script_model_instance
 
     def create_video(self, content_id, video):
         """

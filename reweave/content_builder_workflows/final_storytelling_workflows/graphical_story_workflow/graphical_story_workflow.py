@@ -18,18 +18,18 @@ class GraphicalStoryWorkflow(BaseWorkflow):
     """
     Build Video from Content and template
     """
-    
+
     def __init__(self):
         self.graphical_story_repo = GraphicalStoryRepo()
         self.script_builder = ScriptBuilder()
-        
-    def create_story(self, content_id, title, additional_instructions = None):
+
+    def create_story(self, content_id, title, additional_instructions=None):
         """
         Create story
         """
-        story = self.script_builder.generate_story(title, additional_instructions)
+        story = self.script_builder.generate_story(
+            title, additional_instructions)
         self.graphical_story_repo.create_story(content_id, story)
-
 
     def generate_script(self, content_id):
         """
@@ -39,36 +39,37 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         script = self.script_builder.generate_script(story)
         self.graphical_story_repo.create_script(content_id, script)
 
-
     def generate_footages(self, content_id):
         """
         Generate footages
         """
         footage_uri = self.graphical_story_repo.get_footage_uri(content_id)
         script = self.graphical_story_repo.get_script(content_id)
-        scene_list = script.get("scene_list")
-        title = script.get("title")
-        summary = script.get("story_summary")
-        visual_style_description = script.get("visual_style_description")
-        characters = script.get("characters")
-            
+        scene_list = script.scene_list
+
         for idx, scene in enumerate(scene_list):
-            self._generate_scene_image(idx, title, summary, visual_style_description, characters, scene, footage_uri)
+            self._generate_scene_image(
+                idx,
+                script.title,
+                script.story_summary,
+                script.visual_style_description,
+                script.characters,
+                scene,
+                footage_uri)
             self._generate_scene_audio(idx, scene, footage_uri)
             if is_interactive():
-                print (f"Generated {idx+1} of {len(scene_list)}")
-        
+                print(f"Generated {idx+1} of {len(scene_list)}")
 
     def generate_final_video(self, content_id):
         """
         Create a video
-        """        
+        """
         video_clips = []
         start = 0
         script = self.graphical_story_repo.get_script(content_id)
         footage_uri = self.graphical_story_repo.get_footage_uri(content_id)
-        scene_list = script.get("scene_list")
-        
+        scene_list = script.scene_list
+
         for idx in range(len(scene_list)):
             image_clip = mp.ImageClip(
                 f"{footage_uri}/{idx+1}.png",
@@ -84,17 +85,16 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             clip = clip.set_duration(duration)
             start += duration
             video_clips.append(clip)
-            
+
         video = mp.CompositeVideoClip(video_clips)
-        
+
         self.graphical_story_repo.create_video(content_id, video)
-        
 
     def _generate_scene_image(self, panel_number, title, summary, visual_style_description, characters, scene, footage_dest):
         """
         Create an image
         """
-        scene_description = scene.get("scene_description") 
+        scene_description = scene.get("scene_description")
         narration = scene.get("narration")
         characters_in_scene = scene.get("characters_in_scene")
         prompt = f"""
@@ -122,8 +122,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         audio = generate_audio(scene_narration)
         write_stream_to_file(audio, f"{panel_number+1}.mp3", footage_dest)
 
-
-    def generate_video(self, content_id, title, additional_instructions = None):
+    def generate_video(self, content_id, title, additional_instructions=None):
         """
         Generate video
         """
