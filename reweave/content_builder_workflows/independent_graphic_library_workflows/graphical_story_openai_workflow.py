@@ -7,7 +7,7 @@ import requests
 import moviepy.editor as mp
 from pathlib import Path
 
-from reweave.utils.fs_utils import read_script_from_file, write_script_to_file
+from reweave.utils.fs_utils import read_content_from_file, write_content_to_file
 from .base_workflow import BaseWorkflow
 from ...ai.openai_service import generate_audio, generate_image, client
 
@@ -16,22 +16,16 @@ OUTPUT_DIR = Path('data/output/graphical_story')
 
 class GraphicalStoryWorkflow(BaseWorkflow):
     
-    def __init__(self, script=None, topic=None):
-        self.script = script
+    def __init__(self, topic=None):
         self.topic = topic
+        self.story = None
+        self.script = None
         self.footages = []
         self.audio = []
         self.output_dir = f'{OUTPUT_DIR}/{self.topic[:20]}'
         
-    def generate_script(self):
-        """
-        Create a video script
-        """
-        self._generate_story()
-        self._generate_script()
-        
 
-    def _generate_story(self):
+    def generate_story(self):
         prompt = f"""
                 You are a helpful assistant writer. Write the story for the following topic: {self.topic}
                 
@@ -74,7 +68,9 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         
         
     
-    def _generate_script(self):
+    def generate_script(self):
+        self.story = read_content_from_file('story.txt', self.output_dir)
+        
         prompt = f"""
                 You are a helpful assistant. Use the story provided below to write a script.
                 
@@ -169,10 +165,10 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         """
         Write the script to a file
         """
-        write_script_to_file(content, filename, self.output_dir)
+        write_content_to_file(content, filename, self.output_dir)
 
     def generate_footages(self):
-        script = read_script_from_file('script.json', f'data/output/graphical_story/{self.topic[:20]}')
+        script = json.loads(read_content_from_file('script.json', self.output_dir))
         scene_list = script.get("scene_list")
         title = script.get("title")
         summary = script.get("story_summary")
@@ -222,7 +218,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         """
         video_clips = []
         start = 0
-        script = read_script_from_file('script.json', f'data/output/graphical_story/{self.topic[:20]}')
+        script = json.loads(read_content_from_file('script.json', self.output_dir))
         scene_list = script.get("scene_list")
         
         for idx, clip_content in enumerate(scene_list):
