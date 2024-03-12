@@ -1,3 +1,6 @@
 data/
 scripts/
 *.mp3
+build/
+*.egg-info/
+dist/
