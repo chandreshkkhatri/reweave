@@ -18,7 +18,7 @@ pip install reweave
 Reweave is licensed under MIT [License](https://github.com/chandreshkkhatri/reweave/blob/main/LICENSE)
 
 ## Example Usage
-To use reweave in your project, you can explore [example notebooks]https://github.com/chandreshkkhatri/reweave/blob/main/notebooks/generate_graphical_story.ipynb)
+To use reweave in your project, you can explore [example notebooks](https://github.com/chandreshkkhatri/reweave/blob/main/notebooks/generate_graphical_story.ipynb)
 
 
 ## Features
