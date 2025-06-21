@@ -6,11 +6,13 @@ authors = ["Chandresh Kumar <chandresh.code@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.9"
 openai = "^1.12.0"
 moviepy = "^1.0.3"
 requests = "^2.31.0"
 pydantic = "^2.6.3"
+python-dotenv = "^1.1.0"
+yt-dlp = "^2025.6.9"
 
 
 [tool.poetry.group.dev.dependencies]
