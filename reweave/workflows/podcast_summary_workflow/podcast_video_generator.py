@@ -115,7 +115,7 @@ class PodcastVideoGenerator:
         resp = self.openai_client.chat.completions.create(
             model='gpt-4',
             messages=[
-                {"role": "system", "content": "Summarize into concise bullet points without losing important details."},
+                {"role": "system", "content": "Summarize into concise bullet points without losing important details. The transcription might contain mixed languages Hindi and English. Interpret the context and summarize accordingly."},
                 {"role": "user", "content": text}
             ],
             temperature=0.5
