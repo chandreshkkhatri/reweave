@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from openai import OpenAI
 from moviepy.editor import AudioFileClip, ColorClip, TextClip, CompositeVideoClip
 from moviepy.video.fx.speedx import speedx as video_speedx
+from youtube_transcript_api._api import YouTubeTranscriptApi
 
 
 class PodcastVideoGenerator:
@@ -33,14 +34,10 @@ class PodcastVideoGenerator:
         self.assemblyai_api_key = assemblyai_api_key or os.getenv(
             "ASSEMBLYAI_API_KEY")
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        if not self.assemblyai_api_key or not self.openai_api_key:
-            raise RuntimeError(
-                "Both ASSEMBLYAI_API_KEY and OPENAI_API_KEY must be set")
+        if not self.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY must be set")
 
         self.openai_client = OpenAI(api_key=self.openai_api_key)
-        self.assemblyai_headers = {
-            "Authorization": self.assemblyai_api_key, "Content-Type": "application/json"}
-        self.transcribe_endpoint = "https://api.assemblyai.com/v2/transcript"
 
         # Video settings
         self.video_settings = {
@@ -70,46 +67,14 @@ class PodcastVideoGenerator:
             'tags': info.get('tags'),
         }
 
-    def transcribe_audio_url(self, audio_url: str, poll_interval: int = 5, timeout: int = 600) -> str:
-        payload = {"audio_url": audio_url}
-        response = requests.post(
-            self.transcribe_endpoint, json=payload, headers=self.assemblyai_headers)
-        response.raise_for_status()
-        job_id = response.json().get("id")
-
-        start = time.time()
-        while True:
-            status_resp = requests.get(
-                f"{self.transcribe_endpoint}/{job_id}", headers=self.assemblyai_headers)
-            status_resp.raise_for_status()
-            data = status_resp.json()
-            if data.get('status') == 'completed':
-                return data.get('text', '')
-            if data.get('status') == 'error':
-                raise RuntimeError(data.get('error', 'Transcription error'))
-            if time.time() - start > timeout:
-                raise TimeoutError("Transcription timed out")
-            time.sleep(poll_interval)
-
-    def download_and_transcribe(self, youtube_url: str) -> Tuple[str, Dict]:
-        meta = self.get_youtube_metadata(youtube_url)
-        with tempfile.TemporaryDirectory() as tmpdir:
-            opts = {'format': 'bestaudio/best', 'outtmpl': f"{tmpdir}/audio"}
-            with yt_dlp.YoutubeDL(opts) as ydl:
-                ydl.download([youtube_url])
-            audio_file = next((f for f in os.listdir(tmpdir)
-                              if f.startswith('audio')), None)
-            if not audio_file:
-                raise FileNotFoundError("Downloaded audio not found")
-            audio_path = os.path.join(tmpdir, audio_file)
-            # upload to AssemblyAI
-            with open(audio_path, 'rb') as f:
-                upload = requests.post('https://api.assemblyai.com/v2/upload', headers={
-                                       'Authorization': self.assemblyai_api_key}, data=f)
-            upload.raise_for_status()
-            transcript = self.transcribe_audio_url(
-                upload.json().get('upload_url'))
-        return transcript, meta
+    def transcribe_youtube_native(self, youtube_url: str, languages=['en']) -> str:
+        """
+        Fetch transcript directly from YouTube using youtube-transcript-api.
+        """
+        video_id = youtube_url.split('v=')[-1].split('&')[0]
+        entries = YouTubeTranscriptApi.get_transcript(
+            video_id, languages=languages)
+        return '\n'.join(item['text'] for item in entries)
 
     def summarize_text(self, text: str) -> str:
         resp = self.openai_client.chat.completions.create(
@@ -155,7 +120,8 @@ class PodcastVideoGenerator:
 
     def generate_video_from_url(self, youtube_url: str, output_dir: str = 'output') -> Dict[str, object]:
         os.makedirs(output_dir, exist_ok=True)
-        transcript, meta = self.download_and_transcribe(youtube_url)
+        meta = self.get_youtube_metadata(youtube_url)
+        transcript = self.transcribe_youtube_native(youtube_url)
         summary = self.summarize_text(transcript)
         audio_path = os.path.join(output_dir, 'summary.mp3')
         self.synthesize_speech(summary, audio_path)
