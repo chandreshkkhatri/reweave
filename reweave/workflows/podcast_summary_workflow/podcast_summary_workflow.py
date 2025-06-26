@@ -7,7 +7,7 @@ Requires:
 - podcast_video_generator.py in same directory
 - Environment variables: ASSEMBLYAI_API_KEY, OPENAI_API_KEY
 """
-from typing import Dict, Optional
+from typing import Optional
 
 from .podcast_video_generator import PodcastVideoGenerator
 
