@@ -15,11 +15,13 @@ def generate_image(prompt):
         size="1024x1024",
         quality="standard",
         n=1,
-        )
+    )
 
-    image_url = response.data[0].url
-    
-    return image_url
+    if response.data and len(response.data) > 0 and hasattr(response.data[0], "url"):
+        image_url = response.data[0].url
+        return image_url
+    else:
+        raise ValueError("No image URL returned from OpenAI API.")
 
 
 def generate_audio(text):
@@ -27,7 +29,6 @@ def generate_audio(text):
         model="tts-1",
         voice="alloy",
         input=text,
-        )
-    
+    )
+
     return audio
-    

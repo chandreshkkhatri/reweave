@@ -2,16 +2,12 @@
 Build Video from Content and template
 """
 
-import json
-import requests
 import moviepy.editor as mp
 from reweave.utils.env_utils import is_interactive
 
-from reweave.utils.fs_utils import write_bytes_to_file, write_stream_to_file
 from .graphical_story_repo import GraphicalStoryRepo
 from .story_builder import ScriptBuilder
 from ..base_workflow import BaseWorkflow
-from ....ai.openai_service import generate_audio, generate_image
 
 
 class GraphicalStoryWorkflow(BaseWorkflow):
@@ -48,15 +44,21 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         scene_list = script.scene_list
 
         for idx, scene in enumerate(scene_list):
-            self._generate_scene_image(
+            # Delegate generation to repository
+            self.graphical_story_repo.save_scene_image(
+                content_id,
                 idx,
                 script.title,
                 script.story_summary,
                 script.visual_style_description,
                 script.characters,
-                scene,
-                footage_uri)
-            self._generate_scene_audio(idx, scene, footage_uri)
+                scene
+            )
+            self.graphical_story_repo.save_scene_audio(
+                content_id,
+                idx,
+                scene.get("narration")
+            )
             if is_interactive():
                 print(f"Generated {idx+1} of {len(scene_list)}")
 
@@ -89,38 +91,6 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         video = mp.CompositeVideoClip(video_clips)
 
         self.graphical_story_repo.create_video(content_id, video)
-
-    def _generate_scene_image(self, panel_number, title, summary, visual_style_description, characters, scene, footage_dest):
-        """
-        Create an image
-        """
-        scene_description = scene.get("scene_description")
-        narration = scene.get("narration")
-        characters_in_scene = scene.get("characters_in_scene")
-        prompt = f"""
-            The image to be created is a panel of a story titled "{title}" with the following characters: {json.dumps(characters)}.
-            The summary of the story is "{summary}".
-            The visual style of the story as follows "{visual_style_description}".
-            The story is divided into scenes and you have to draw one of the scenes.
-            The scene contains the following characters: {json.dumps(characters_in_scene)}.
-            The scene description is "{scene_description}"    
-            The following is a background narration in the scene: "{narration}"
-            Do not add any text to the images.
-        """
-        image_url = generate_image(prompt)
-        image = requests.get(image_url).content
-        write_bytes_to_file(image, f"{panel_number+1}.png", footage_dest)
-
-    def _generate_scene_audio(self, panel_number, scene, footage_dest):
-        """
-        Create scene audio
-        """
-        scene_narration = scene.get("narration")
-        if scene_narration is None:
-            return
-
-        audio = generate_audio(scene_narration)
-        write_stream_to_file(audio, f"{panel_number+1}.mp3", footage_dest)
 
     def generate_video(self, content_id, title, additional_instructions=None):
         """

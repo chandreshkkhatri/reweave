@@ -8,14 +8,14 @@ import moviepy.editor as mp
 from pathlib import Path
 
 from reweave.utils.fs_utils import read_content_from_file, write_content_to_file
-from .base_workflow import BaseWorkflow
 from ...ai.openai_service import generate_audio, generate_image, client
 
 
 OUTPUT_DIR = Path('data/output/graphical_story')
 
-class GraphicalStoryWorkflow(BaseWorkflow):
-    
+
+class GraphicalStoryWorkflow:
+
     def __init__(self, topic=None):
         self.topic = topic
         self.story = None
@@ -23,7 +23,6 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         self.footages = []
         self.audio = []
         self.output_dir = f'{OUTPUT_DIR}/{self.topic[:20]}'
-        
 
     def generate_story(self):
         prompt = f"""
@@ -49,12 +48,12 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             """
         try:
             response = client.chat.completions.create(
-                    model="gpt-4-1106-preview",  # You can change the model version if needed
-                    messages=[{
-                        "role": "system",  
-                        "content": prompt
-                    }],
-                )
+                model="gpt-4-1106-preview",  # You can change the model version if needed
+                messages=[{
+                    "role": "system",
+                    "content": prompt
+                }],
+            )
             story = response.choices[0].message.content
 
             if story:
@@ -65,12 +64,9 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-        
-        
-    
     def generate_script(self):
         self.story = read_content_from_file('story.txt', self.output_dir)
-        
+
         prompt = f"""
                 You are a helpful assistant. Use the story provided below to write a script.
                 
@@ -112,7 +108,7 @@ class GraphicalStoryWorkflow(BaseWorkflow):
                             }
                         },
                         "scene_list": {
-                            "type": "array",         
+                            "type": "array",
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -143,14 +139,14 @@ class GraphicalStoryWorkflow(BaseWorkflow):
 
         try:
             response = client.chat.completions.create(
-                    model="gpt-4-1106-preview",  # You can change the model version if needed
-                    messages=[{
-                        "role": "system",  
-                        "content": prompt
-                    }],
-                    functions=functions,
-                    function_call={"name": "write_script_to_file"}
-                )
+                model="gpt-4-1106-preview",  # You can change the model version if needed
+                messages=[{
+                    "role": "system",
+                    "content": prompt
+                }],
+                functions=functions,
+                function_call={"name": "write_script_to_file"}
+            )
             script = response.choices[0].message.function_call.arguments
             if script:
                 self.script = script
@@ -160,7 +156,6 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         except Exception as e:
             print(f"An error occurred: {e}")
 
-
     def _write_to_file(self, content, filename):
         """
         Write the script to a file
@@ -168,22 +163,24 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         write_content_to_file(content, filename, self.output_dir)
 
     def generate_footages(self):
-        script = json.loads(read_content_from_file('script.json', self.output_dir))
+        script = json.loads(read_content_from_file(
+            'script.json', self.output_dir))
         scene_list = script.get("scene_list")
         title = script.get("title")
         summary = script.get("story_summary")
         visual_style_description = script.get("visual_style_description")
         characters = script.get("characters")
-            
+
         for idx, scene in enumerate(scene_list):
-            self._generate_scene_image(self.topic, idx, title, summary, visual_style_description, characters, scene)
+            self._generate_scene_image(
+                self.topic, idx, title, summary, visual_style_description, characters, scene)
             self._generate_scene_audio(idx, scene, self.topic)
-        
+
     def _generate_scene_image(self, topic, panel_number, title, summary, visual_style_description, characters, scene):
         """
         Create an image
         """
-        scene_description = scene.get("scene_description") 
+        scene_description = scene.get("scene_description")
         narration = scene.get("narration")
         characters_in_scene = scene.get("characters_in_scene")
         prompt = f"""
@@ -210,7 +207,6 @@ class GraphicalStoryWorkflow(BaseWorkflow):
 
         audio = generate_audio(scene_narration)
         audio.stream_to_file(f"{self.output_dir}/{panel_number+1}.mp3")
-            
 
     def generate_final_video(self):
         """
@@ -218,9 +214,10 @@ class GraphicalStoryWorkflow(BaseWorkflow):
         """
         video_clips = []
         start = 0
-        script = json.loads(read_content_from_file('script.json', self.output_dir))
+        script = json.loads(read_content_from_file(
+            'script.json', self.output_dir))
         scene_list = script.get("scene_list")
-        
+
         for idx, clip_content in enumerate(scene_list):
             image_clip = mp.ImageClip(
                 f"{self.output_dir}/{idx+1}.png",
@@ -236,12 +233,12 @@ class GraphicalStoryWorkflow(BaseWorkflow):
             clip = clip.set_duration(duration)
             start += duration
             video_clips.append(clip)
-            
+
         video = mp.CompositeVideoClip(video_clips)
-        
-        video.write_videofile(f"{self.output_dir}/final_video.mp4", fps=24, remove_temp=False)
-        
-        
+
+        video.write_videofile(
+            f"{self.output_dir}/final_video.mp4", fps=24, remove_temp=False)
+
     def generate_video(self):
         self.generate_script()
         self.generate_footages()
