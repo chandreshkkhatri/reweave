@@ -7,10 +7,9 @@ from reweave.utils.env_utils import is_interactive
 
 from .graphical_story_repo import GraphicalStoryRepo
 from .story_builder import ScriptBuilder
-from ..base_workflow import BaseWorkflow
 
 
-class GraphicalStoryWorkflow(BaseWorkflow):
+class GraphicalStoryWorkflow:
     """
     Build Video from Content and template
     """
