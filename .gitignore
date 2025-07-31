@@ -10,3 +10,4 @@ dist/
 *.env
 output/
 .DS_Store
+.pycache/
