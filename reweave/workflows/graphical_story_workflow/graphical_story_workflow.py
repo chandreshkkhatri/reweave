@@ -56,7 +56,7 @@ class GraphicalStoryWorkflow:
             self.graphical_story_repo.save_scene_audio(
                 content_id,
                 idx,
-                scene.get("narration")
+                scene.narration
             )
             if is_interactive():
                 print(f"Generated {idx+1} of {len(scene_list)}")
@@ -66,26 +66,31 @@ class GraphicalStoryWorkflow:
         Create a video
         """
         video_clips = []
+        audio_clips = []
         start = 0
         script = self.graphical_story_repo.get_script(content_id)
         footage_uri = self.graphical_story_repo.get_footage_uri(content_id)
         scene_list = script.scene_list
 
-        for idx in range(len(scene_list)):
-            image_clip = ImageClip(f"{footage_uri}/{idx+1}.png")
-            audio_clip = AudioFileClip(f"{footage_uri}/{idx+1}.mp3")
-            duration = audio_clip.duration
-            image_clip = image_clip.with_start(start)
-            image_clip = image_clip.with_duration(duration)
-            audio_clip = audio_clip.with_start(start)
-            clip = image_clip.with_audio(audio_clip)
-            clip = clip.with_duration(duration)
-            start += duration
-            video_clips.append(clip)
+        try:
+            for idx in range(len(scene_list)):
+                image_clip = ImageClip(f"{footage_uri}/{idx+1}.png")
+                audio_clip = AudioFileClip(f"{footage_uri}/{idx+1}.mp3")
+                audio_clips.append(audio_clip)
+                duration = audio_clip.duration
+                image_clip = image_clip.with_start(start)
+                image_clip = image_clip.with_duration(duration)
+                audio_clip = audio_clip.with_start(start)
+                clip = image_clip.with_audio(audio_clip)
+                clip = clip.with_duration(duration)
+                start += duration
+                video_clips.append(clip)
 
-        video = CompositeVideoClip(video_clips)
-
-        self.graphical_story_repo.create_video(content_id, video)
+            video = CompositeVideoClip(video_clips)
+            self.graphical_story_repo.create_video(content_id, video)
+        finally:
+            for clip in audio_clips:
+                clip.close()
 
     def generate_video(self, content_id, title, additional_instructions=None):
         """

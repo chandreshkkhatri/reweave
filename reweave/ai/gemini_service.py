@@ -12,11 +12,24 @@ from google import genai
 from google.genai import types
 from gtts import gTTS
 
-token = os.getenv("GEMINI_API_KEY")
-client = genai.Client(api_key=token)
-
 DEFAULT_TEXT_MODEL = "gemini-2.5-flash"
 DEFAULT_IMAGE_MODEL = "imagen-3.0-generate-002"
+
+_client = None
+
+
+def _get_client():
+    """Lazily initialize the Gemini client on first API call."""
+    global _client
+    if _client is None:
+        token = os.getenv("GEMINI_API_KEY")
+        if not token:
+            raise RuntimeError(
+                "GEMINI_API_KEY environment variable is not set. "
+                "Set it in your .env file or export it in your shell."
+            )
+        _client = genai.Client(api_key=token)
+    return _client
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +145,7 @@ def generate_text(system_prompt, user_prompt=None, model=DEFAULT_TEXT_MODEL,
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         )
 
-    response = client.models.generate_content(
+    response = _get_client().models.generate_content(
         model=model,
         contents=user_prompt or "Please proceed.",
         config=types.GenerateContentConfig(**config_kwargs),
@@ -161,7 +174,7 @@ def generate_image(prompt):
         Image bytes (PNG/JPEG). Callers should write these directly with
         write_bytes_to_file() instead of downloading from a URL.
     """
-    response = client.models.generate_images(
+    response = _get_client().models.generate_images(
         model=DEFAULT_IMAGE_MODEL,
         prompt=prompt,
         config=types.GenerateImagesConfig(

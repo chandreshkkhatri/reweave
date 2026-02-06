@@ -7,7 +7,7 @@ Requires:
 - podcast_video_generator.py in same directory
 - Environment variables: GEMINI_API_KEY
 """
-from typing import Optional
+from typing import Dict, Optional
 
 from .podcast_video_generator import PodcastVideoGenerator
 
@@ -26,9 +26,7 @@ class PodcastSummaryWorkflow:
             assemblyai_api_key=assemblyai_api_key
         )
 
-    from typing import Mapping
-
-    def generate(self, youtube_url: str, output_dir: str = "output") -> Mapping[str, object]:
+    def generate(self, youtube_url: str, output_dir: str = "output") -> Dict[str, object]:
         """
         Run the full pipeline:
             1. Transcribe podcast audio from YouTube

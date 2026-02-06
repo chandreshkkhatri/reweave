@@ -16,6 +16,7 @@ Environment Variables:
 """
 import os
 from typing import Dict, Optional
+from urllib.parse import urlparse, parse_qs
 
 import yt_dlp
 from dotenv import load_dotenv
@@ -66,7 +67,13 @@ class PodcastVideoGenerator:
         """
         if languages is None:
             languages = ['en']
-        video_id = youtube_url.split('v=')[-1].split('&')[0]
+        parsed = urlparse(youtube_url)
+        if parsed.hostname in ('youtu.be',):
+            video_id = parsed.path.lstrip('/')
+        else:
+            video_id = parse_qs(parsed.query).get('v', [''])[0]
+        if not video_id:
+            raise ValueError(f"Could not extract video ID from URL: {youtube_url}")
         ytt = YouTubeTranscriptApi()
         transcript = ytt.fetch(video_id, languages=languages)
         return '\n'.join(item.text for item in transcript)
@@ -89,31 +96,34 @@ class PodcastVideoGenerator:
     def create_scrolling_video(self, summary: str, audio_path: str, video_path: str) -> str:
         s = self.video_settings
         clip_audio = AudioFileClip(audio_path)
-        duration = clip_audio.duration
-        total = (s['delay'] + duration + s['tail']) * s['speed_factor']
-        bg = ColorClip((s['width'], s['height']),
-                       color=s['bg_color'], duration=total)
-        txt = TextClip(
-            font=DEFAULT_FONT,
-            text=summary,
-            font_size=s['font_size'],
-            color=s['text_color'],
-            size=(s['text_width'], None),
-            method='caption',
-        )
-        h, w = txt.h, txt.w
-        x0 = (s['width'] - w) // 2
-        def pos(t): return (x0, s['height'] - (s['height'] + h) * (t/total))
-        mov = txt.with_position(pos).with_duration(total)
-        video = CompositeVideoClip([bg, mov]).with_effects([
-            vfx.MultiplySpeed(factor=s['speedup_factor'])
-        ])
-        audio_clip = clip_audio.with_start(s['delay']/s['speedup_factor'])
-        final = video.with_audio(audio_clip)
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        final.write_videofile(video_path, fps=s['fps'], codec='libx264',
-                              audio_codec='aac', temp_audiofile='temp-audio.m4a', remove_temp=True)
+        try:
+            duration = clip_audio.duration
+            total = (s['delay'] + duration + s['tail']) * s['speed_factor']
+            bg = ColorClip((s['width'], s['height']),
+                           color=s['bg_color'], duration=total)
+            txt = TextClip(
+                font=DEFAULT_FONT,
+                text=summary,
+                font_size=s['font_size'],
+                color=s['text_color'],
+                size=(s['text_width'], None),
+                method='caption',
+            )
+            h, w = txt.h, txt.w
+            x0 = (s['width'] - w) // 2
+            def pos(t): return (x0, s['height'] - (s['height'] + h) * (t/total))
+            mov = txt.with_position(pos).with_duration(total)
+            video = CompositeVideoClip([bg, mov]).with_effects([
+                vfx.MultiplySpeed(factor=s['speedup_factor'])
+            ])
+            audio_clip = clip_audio.with_start(s['delay']/s['speedup_factor'])
+            final = video.with_audio(audio_clip)
+            final.write_videofile(video_path, fps=s['fps'], codec='libx264',
+                                  audio_codec='aac',
+                                  temp_audiofile=f'temp-summary-audio-{os.getpid()}.m4a',
+                                  remove_temp=True)
+        finally:
+            clip_audio.close()
         return video_path
 
     def generate_video_from_url(self, youtube_url: str, output_dir: str = 'output') -> Dict[str, object]:

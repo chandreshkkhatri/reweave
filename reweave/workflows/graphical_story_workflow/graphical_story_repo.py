@@ -2,13 +2,14 @@
 Repo for Graphical Story
 """
 import json
+import os
 from pathlib import Path
 
 from reweave.utils.fs_utils import read_content_from_file, write_content_to_file, write_bytes_to_file, write_stream_to_file
 from .commons import Script
 from ...ai.gemini_service import generate_image, generate_audio
 
-OUTPUT_DIR = Path('data/output/graphical_story')
+OUTPUT_DIR = Path(os.getenv('REWEAVE_OUTPUT_DIR', 'data/output')) / 'graphical_story'
 STORY_FILENAME = 'story.txt'
 SCRIPT_FILENAME = 'script.json'
 VIDEO_FILENAME = 'final_video.mp4'
@@ -18,9 +19,6 @@ class GraphicalStoryRepo:
     """
     Repo for Graphical Story
     """
-
-    def __init__(self):
-        pass
 
     def create_story(self, content_id, story):
         """
@@ -60,7 +58,11 @@ class GraphicalStoryRepo:
         """
         output_dir = f'{OUTPUT_DIR}/{content_id}'
         video.write_videofile(
-            f"{output_dir}/{VIDEO_FILENAME}", fps=24, remove_temp=False)
+            f"{output_dir}/{VIDEO_FILENAME}", fps=24,
+            codec='libx264', audio_codec='aac',
+            temp_audiofile=f'temp-story-audio-{os.getpid()}.m4a',
+            remove_temp=True)
+        video.close()
 
     def get_footage_uri(self, content_id):
         """
@@ -73,9 +75,9 @@ class GraphicalStoryRepo:
         """
         Generate and save a scene image using AI and write to file
         """
-        scene_description = scene.get("scene_description")
-        narration = scene.get("narration")
-        characters_in_scene = scene.get("characters_in_scene")
+        scene_description = scene.scene_description
+        narration = scene.narration
+        characters_in_scene = scene.characters_in_scene
         prompt = f"""
             The image to be created is a panel of a story titled \"{title}\" with the following characters: {json.dumps(characters)}.
             The summary of the story is \"{summary}\".

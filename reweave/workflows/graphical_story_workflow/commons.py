@@ -24,11 +24,12 @@ class Scene(BaseModel):
     """
     Scene
     """
+    scene_number: int
     scene_description: str
-    characters_in_scene: list
+    characters_in_scene: list[str]
     narration: str
-    
-    
+
+
 class Script(BaseModel):
     """
     Script
@@ -36,5 +37,5 @@ class Script(BaseModel):
     title: str
     story_summary: str
     visual_style_description: str
-    characters: list
-    scene_list: list
+    characters: list[dict]
+    scene_list: list[Scene]

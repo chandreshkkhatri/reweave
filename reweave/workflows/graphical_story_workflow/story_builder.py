@@ -14,14 +14,14 @@ class ScriptBuilder:
         pass
 
 
-    def generate_story(self, title, additional_instructions = None):
+    def generate_story(self, title, additional_instructions=None):
         """
         Generate story
         """
         prompt = f"""
                 You are a helpful assistant writer. Write the story for the following topic: {title}
 
-                {additional_instructions}
+                {additional_instructions or ""}
 
                 Provide a good narrative structure for the story describing the plot, characters, and setting.
 
@@ -31,15 +31,10 @@ class ScriptBuilder:
 
                 Try to follow the guidelines implicitely, but do not explicitely breakdown the story into different parts. Simply reply with the story.
             """
-        try:
-            response = generate_text(system_prompt=prompt)
-            story = response.content
-
-            if story:
-                return story
-
-        except Exception as e:
-            print(f"An error occurred while generating the story: {e}")
+        response = generate_text(system_prompt=prompt)
+        if not response.content:
+            raise RuntimeError("Story generation returned empty content")
+        return response.content
 
 
     def generate_script(self, story):
@@ -112,16 +107,12 @@ class ScriptBuilder:
             }
         ]
 
-        try:
-            response = generate_text(
-                system_prompt=prompt,
-                functions=functions,
-                function_call={"name": "create_script"},
-            )
-            script_response = response.function_call.arguments
-            if script_response:
-                return script_response
-
-        except Exception as e:
-            print(f"An error occurred while generating the script: {e}")
+        response = generate_text(
+            system_prompt=prompt,
+            functions=functions,
+            function_call={"name": "create_script"},
+        )
+        if not response.function_call:
+            raise RuntimeError("Script generation did not return a function call")
+        return response.function_call.arguments
 
