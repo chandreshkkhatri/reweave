@@ -30,13 +30,9 @@ def test_podcast_summary_workflow_init():
     with patch('reweave.workflows.podcast_summary_workflow.podcast_summary_workflow.PodcastVideoGenerator') as mock_generator:
         from reweave.workflows.podcast_summary_workflow.podcast_summary_workflow import PodcastSummaryWorkflow
 
-        workflow = PodcastSummaryWorkflow(
-            assemblyai_api_key='test_key1')
+        workflow = PodcastSummaryWorkflow()
 
-        # Verify the generator was initialized with correct keys
-        mock_generator.assert_called_once_with(
-            assemblyai_api_key='test_key1'
-        )
+        mock_generator.assert_called_once_with()
         assert workflow.generator == mock_generator.return_value
 
 
@@ -60,7 +56,8 @@ def test_podcast_summary_workflow_generate():
 
         # Verify the generator method was called with correct arguments
         mock_generator.return_value.generate_video_from_url.assert_called_once_with(
-            'https://youtube.com/test', 'test_output'
+            'https://youtube.com/test', 'test_output',
+            use_audio_transcription=True,
         )
 
         # Verify the result is returned unchanged
@@ -79,7 +76,8 @@ def test_podcast_summary_workflow_generate_default_output_dir():
 
         # Verify default output dir is used
         mock_generator.return_value.generate_video_from_url.assert_called_once_with(
-            'https://youtube.com/test', 'output'
+            'https://youtube.com/test', 'output',
+            use_audio_transcription=True,
         )
 
 

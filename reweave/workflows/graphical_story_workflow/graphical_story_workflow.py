@@ -2,8 +2,9 @@
 Build Video from Content and template
 """
 
-from moviepy import ImageClip, AudioFileClip, CompositeVideoClip
+from moviepy import ImageClip, AudioFileClip, CompositeVideoClip, vfx
 from reweave.utils.env_utils import is_interactive
+from reweave.utils.video_utils import create_title_card
 
 from .graphical_story_repo import GraphicalStoryRepo
 from .story_builder import ScriptBuilder
@@ -63,28 +64,37 @@ class GraphicalStoryWorkflow:
 
     def generate_final_video(self, content_id):
         """
-        Create a video
+        Create a video with title card and crossfade transitions between scenes.
         """
+        crossfade = 1.0  # seconds
         video_clips = []
         audio_clips = []
-        start = 0
         script = self.graphical_story_repo.get_script(content_id)
         footage_uri = self.graphical_story_repo.get_footage_uri(content_id)
         scene_list = script.scene_list
 
         try:
+            # Title card (3 seconds)
+            title_clip = create_title_card(
+                script.title, duration=3,
+                width=1024, height=1024,
+            ).with_start(0)
+            video_clips.append(title_clip)
+            start = 3 - crossfade  # overlap with first scene
+
             for idx in range(len(scene_list)):
                 image_clip = ImageClip(f"{footage_uri}/{idx+1}.png")
                 audio_clip = AudioFileClip(f"{footage_uri}/{idx+1}.mp3")
                 audio_clips.append(audio_clip)
                 duration = audio_clip.duration
-                image_clip = image_clip.with_start(start)
-                image_clip = image_clip.with_duration(duration)
+
+                image_clip = image_clip.with_start(start).with_duration(duration)
+                image_clip = image_clip.with_effects([vfx.CrossFadeIn(crossfade)])
                 audio_clip = audio_clip.with_start(start)
+
                 clip = image_clip.with_audio(audio_clip)
-                clip = clip.with_duration(duration)
-                start += duration
                 video_clips.append(clip)
+                start += duration - crossfade
 
             video = CompositeVideoClip(video_clips)
             self.graphical_story_repo.create_video(content_id, video)

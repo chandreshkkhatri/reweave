@@ -15,23 +15,24 @@ Environment Variables:
     GEMINI_API_KEY
 """
 import os
-from typing import Dict, Optional
+from typing import Dict
 from urllib.parse import urlparse, parse_qs
 
 import yt_dlp
 from dotenv import load_dotenv
-from moviepy import AudioFileClip, ColorClip, TextClip, CompositeVideoClip, vfx
+from moviepy import (
+    AudioFileClip, ColorClip, TextClip, CompositeVideoClip,
+    concatenate_videoclips, vfx,
+)
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from reweave.ai.gemini_service import generate_text, generate_audio
-from reweave.utils.video_utils import DEFAULT_FONT
+from reweave.ai.gemini_service import generate_text, generate_audio, transcribe_audio
+from reweave.utils.video_utils import DEFAULT_FONT, create_title_card
 
 
 class PodcastVideoGenerator:
-    def __init__(self, assemblyai_api_key: Optional[str] = None):
+    def __init__(self):
         load_dotenv()
-        self.assemblyai_api_key = assemblyai_api_key or os.getenv(
-            "ASSEMBLYAI_API_KEY")
 
         # Video settings
         self.video_settings = {
@@ -78,11 +79,44 @@ class PodcastVideoGenerator:
         transcript = ytt.fetch(video_id, languages=languages)
         return '\n'.join(item.text for item in transcript)
 
+    def download_youtube_audio(self, youtube_url: str, output_dir: str) -> str:
+        """Download audio from a YouTube video using yt-dlp."""
+        audio_path = os.path.join(output_dir, 'source_audio')
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': audio_path,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '128',
+            }],
+            'quiet': True,
+        }
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+        return audio_path + '.mp3'
+
+    def transcribe_from_audio(self, audio_path: str) -> str:
+        """Transcribe a local audio file using Gemini's audio understanding."""
+        return transcribe_audio(audio_path)
+
     def summarize_text(self, text: str) -> str:
         response = generate_text(
-            system_prompt="Summarize into concise bullet points without losing important details. The transcription might contain mixed languages Hindi and English. Interpret the context and summarize accordingly.",
+            system_prompt=(
+                "You are an expert content summarizer. Create a clear, well-structured "
+                "summary of the following transcript.\n\n"
+                "Guidelines:\n"
+                "- Start with a one-line overview of what the content is about.\n"
+                "- Use concise bullet points grouped by topic or theme.\n"
+                "- Preserve key facts, names, numbers, and specific claims.\n"
+                "- Capture the speaker's main arguments and conclusions.\n"
+                "- If the transcript contains mixed languages (e.g. Hindi and English), "
+                "interpret the full context and summarize in English.\n"
+                "- Omit filler words, repetitions, and off-topic tangents.\n"
+                "- Aim for a summary that is roughly 15-20% the length of the original."
+            ),
             user_prompt=text,
-            temperature=0.5,
+            temperature=0.3,
         )
         return response.content or ""
 
@@ -93,7 +127,8 @@ class PodcastVideoGenerator:
         audio.stream_to_file(out_path)
         return out_path
 
-    def create_scrolling_video(self, summary: str, audio_path: str, video_path: str) -> str:
+    def create_scrolling_video(self, summary: str, audio_path: str, video_path: str,
+                               title: str = '') -> str:
         s = self.video_settings
         clip_audio = AudioFileClip(audio_path)
         try:
@@ -113,11 +148,24 @@ class PodcastVideoGenerator:
             x0 = (s['width'] - w) // 2
             def pos(t): return (x0, s['height'] - (s['height'] + h) * (t/total))
             mov = txt.with_position(pos).with_duration(total)
-            video = CompositeVideoClip([bg, mov]).with_effects([
+            scroll_video = CompositeVideoClip([bg, mov]).with_effects([
                 vfx.MultiplySpeed(factor=s['speedup_factor'])
             ])
             audio_clip = clip_audio.with_start(s['delay']/s['speedup_factor'])
-            final = video.with_audio(audio_clip)
+            scroll_with_audio = scroll_video.with_audio(audio_clip)
+
+            # Prepend title card if title is available
+            clips = []
+            if title:
+                title_card = create_title_card(
+                    title, duration=3,
+                    width=s['width'], height=s['height'],
+                    font_size=40,
+                )
+                clips.append(title_card)
+            clips.append(scroll_with_audio)
+
+            final = concatenate_videoclips(clips)
             final.write_videofile(video_path, fps=s['fps'], codec='libx264',
                                   audio_codec='aac',
                                   temp_audiofile=f'temp-summary-audio-{os.getpid()}.m4a',
@@ -126,15 +174,27 @@ class PodcastVideoGenerator:
             clip_audio.close()
         return video_path
 
-    def generate_video_from_url(self, youtube_url: str, output_dir: str = 'output') -> Dict[str, object]:
+    def generate_video_from_url(self, youtube_url: str, output_dir: str = 'output',
+                                use_audio_transcription: bool = True) -> Dict[str, object]:
         os.makedirs(output_dir, exist_ok=True)
         meta = self.get_youtube_metadata(youtube_url)
-        transcript = self.transcribe_youtube_native(youtube_url)
+
+        # Try audio-based transcription (more accurate), fall back to captions
+        if use_audio_transcription:
+            try:
+                source_audio = self.download_youtube_audio(youtube_url, output_dir)
+                transcript = self.transcribe_from_audio(source_audio)
+            except Exception:
+                transcript = self.transcribe_youtube_native(youtube_url)
+        else:
+            transcript = self.transcribe_youtube_native(youtube_url)
+
         summary = self.summarize_text(transcript)
         audio_path = os.path.join(output_dir, 'summary.mp3')
         self.synthesize_speech(summary, audio_path)
         video_path = os.path.join(output_dir, 'summary_video.mp4')
-        self.create_scrolling_video(summary, audio_path, video_path)
+        title = meta.get('title', '')
+        self.create_scrolling_video(summary, audio_path, video_path, title)
         txt_t = os.path.join(output_dir, 'transcript.txt')
         txt_s = os.path.join(output_dir, 'summary.txt')
         with open(txt_t, 'w') as f:

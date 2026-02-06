@@ -19,17 +19,25 @@ class ScriptBuilder:
         Generate story
         """
         prompt = f"""
-                You are a helpful assistant writer. Write the story for the following topic: {title}
+                You are an experienced fiction writer known for vivid, emotionally engaging stories.
+                Write a complete short story for the following topic: {title}
 
                 {additional_instructions or ""}
 
-                Provide a good narrative structure for the story describing the plot, characters, and setting.
-
-                Follow the following guidelines to create a good narrative:
+                Follow these guidelines for a compelling narrative:
 
                 {NarrativeStructurePrompts.three_act_narrative}
 
-                Try to follow the guidelines implicitely, but do not explicitely breakdown the story into different parts. Simply reply with the story.
+                Additional writing requirements:
+                - Create distinct, memorable characters with clear motivations.
+                - Use sensory details: describe what characters see, hear, smell, and feel.
+                - Include meaningful dialogue that reveals character personality.
+                - Build tension through escalating stakes and obstacles.
+                - End with a satisfying resolution that feels earned.
+                - Use vivid visual descriptions for settings and actions — these will be used to generate illustrations.
+                - Aim for 800-1200 words, enough depth for 6-8 illustrated scenes.
+
+                Write the story as flowing prose. Do not label acts or sections.
             """
         response = generate_text(system_prompt=prompt)
         if not response.content:

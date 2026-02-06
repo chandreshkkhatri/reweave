@@ -79,14 +79,23 @@ class GraphicalStoryRepo:
         narration = scene.narration
         characters_in_scene = scene.characters_in_scene
         prompt = f"""
-            The image to be created is a panel of a story titled \"{title}\" with the following characters: {json.dumps(characters)}.
-            The summary of the story is \"{summary}\".
-            The visual style of the story as follows \"{visual_style_description}\".
-            The story is divided into scenes and you have to draw one of the scenes.
-            The scene contains the following characters: {json.dumps(characters_in_scene)}.
-            The scene description is \"{scene_description}\"    
-            The following is a background narration in the scene: \"{narration}\"
-            Do not add any text to the images.
+            Create a single illustration for a story titled "{title}".
+
+            Visual style: {visual_style_description}
+
+            Characters in this scene: {json.dumps(characters_in_scene)}
+            Character reference descriptions: {json.dumps(characters)}
+
+            Scene description: {scene_description}
+            Scene narration: {narration}
+
+            Composition guidelines:
+            - Frame the scene with clear foreground subjects and a contextual background.
+            - Use lighting and color palette that match the mood of the narration.
+            - Show character emotions through facial expressions and body language.
+            - Maintain visual consistency with the described art style throughout.
+            - Fill the entire frame with no borders or letterboxing.
+            - Do not include any text, titles, captions, speech bubbles, or watermarks.
         """
         image_bytes = generate_image(prompt)
         if not image_bytes:

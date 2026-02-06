@@ -189,6 +189,38 @@ def generate_image(prompt):
         raise ValueError("No image returned from Imagen API.")
 
 
+def transcribe_audio(audio_path, model=DEFAULT_TEXT_MODEL):
+    """
+    Transcribe an audio file using Gemini's multimodal audio understanding.
+
+    Uses the File API for reliable handling of large audio files (podcasts, etc.).
+
+    Args:
+        audio_path: Path to the audio file (mp3, m4a, wav, etc.).
+        model: Gemini model name (default: gemini-2.5-flash).
+
+    Returns:
+        Transcription text as a string.
+    """
+    client = _get_client()
+    uploaded_file = client.files.upload(file=audio_path)
+    try:
+        response = client.models.generate_content(
+            model=model,
+            contents=[
+                uploaded_file,
+                'Transcribe this audio accurately and completely. '
+                'Include all spoken words. If multiple languages are spoken '
+                '(e.g. Hindi and English), transcribe each in its original language. '
+                'Output only the transcription text, no timestamps or labels.',
+            ],
+            config=types.GenerateContentConfig(temperature=0.1),
+        )
+        return response.text
+    finally:
+        client.files.delete(name=uploaded_file.name)
+
+
 def generate_audio(text, lang='en'):
     """
     Generate TTS audio using Google Text-to-Speech (gTTS).
