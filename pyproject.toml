@@ -1,17 +1,18 @@
 [tool.poetry]
 name = "reweave"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "AI-powered content creation toolkit for automated video, image, and text generation"
 authors = ["Chandresh Kumar <chandresh.code@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.9"
-openai = "^1.12.0"
-moviepy = "^1.0.3"
-requests = "^2.31.0"
+google-genai = "^1.0.0"
+gtts = "^2.5.0"
+moviepy = "^2.0"
 pydantic = "^2.6.3"
 python-dotenv = "^1.1.0"
+youtube-transcript-api = "^1.0.0"
 yt-dlp = "^2025.6.9"
 pytest = "^8.4.1"
 

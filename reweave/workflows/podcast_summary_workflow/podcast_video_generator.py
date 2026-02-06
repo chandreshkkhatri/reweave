@@ -1,43 +1,36 @@
 """
 Podcast Video Generator
 
-Core logic extracted from notebook for transcription, summary, TTS, and video creation.
+Core logic for transcription, summary, TTS, and video creation.
 
-Dependencies (install via pip):
+Dependencies:
     yt-dlp
-    requests
     python-dotenv
-    openai
+    google-genai
+    gtts
     moviepy
+    youtube-transcript-api
 
 Environment Variables:
-    ASSEMBLYAI_API_KEY
-    OPENAI_API_KEY
+    GEMINI_API_KEY
 """
 import os
-import time
-import tempfile
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import yt_dlp
-import requests
 from dotenv import load_dotenv
-from openai import OpenAI
-from moviepy.editor import AudioFileClip, ColorClip, TextClip, CompositeVideoClip
-from moviepy.video.fx.speedx import speedx as video_speedx
-from youtube_transcript_api._api import YouTubeTranscriptApi
+from moviepy import AudioFileClip, ColorClip, TextClip, CompositeVideoClip, vfx
+from youtube_transcript_api import YouTubeTranscriptApi
+
+from reweave.ai.gemini_service import generate_text, generate_audio
+from reweave.utils.video_utils import DEFAULT_FONT
 
 
 class PodcastVideoGenerator:
-    def __init__(self, assemblyai_api_key: Optional[str] = None, openai_api_key: Optional[str] = None):
+    def __init__(self, assemblyai_api_key: Optional[str] = None):
         load_dotenv()
         self.assemblyai_api_key = assemblyai_api_key or os.getenv(
             "ASSEMBLYAI_API_KEY")
-        self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        if not self.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY must be set")
-
-        self.openai_client = OpenAI(api_key=self.openai_api_key)
 
         # Video settings
         self.video_settings = {
@@ -67,31 +60,29 @@ class PodcastVideoGenerator:
             'tags': info.get('tags'),
         }
 
-    def transcribe_youtube_native(self, youtube_url: str, languages=['en']) -> str:
+    def transcribe_youtube_native(self, youtube_url: str, languages=None) -> str:
         """
         Fetch transcript directly from YouTube using youtube-transcript-api.
         """
+        if languages is None:
+            languages = ['en']
         video_id = youtube_url.split('v=')[-1].split('&')[0]
-        entries = YouTubeTranscriptApi.get_transcript(
-            video_id, languages=languages)
-        return '\n'.join(item['text'] for item in entries)
+        ytt = YouTubeTranscriptApi()
+        transcript = ytt.fetch(video_id, languages=languages)
+        return '\n'.join(item.text for item in transcript)
 
     def summarize_text(self, text: str) -> str:
-        resp = self.openai_client.chat.completions.create(
-            model='gpt-4',
-            messages=[
-                {"role": "system", "content": "Summarize into concise bullet points without losing important details. The transcription might contain mixed languages Hindi and English. Interpret the context and summarize accordingly."},
-                {"role": "user", "content": text}
-            ],
-            temperature=0.5
+        response = generate_text(
+            system_prompt="Summarize into concise bullet points without losing important details. The transcription might contain mixed languages Hindi and English. Interpret the context and summarize accordingly.",
+            user_prompt=text,
+            temperature=0.5,
         )
-        return resp.choices[0].message.content or ""
+        return response.content or ""
 
     def synthesize_speech(self, text: str, out_path: str) -> str:
         if os.path.exists(out_path):
             os.remove(out_path)
-        audio = self.openai_client.audio.speech.create(
-            model='tts-1', voice='alloy', input=text)
+        audio = generate_audio(text)
         audio.stream_to_file(out_path)
         return out_path
 
@@ -102,16 +93,23 @@ class PodcastVideoGenerator:
         total = (s['delay'] + duration + s['tail']) * s['speed_factor']
         bg = ColorClip((s['width'], s['height']),
                        color=s['bg_color'], duration=total)
-        txt = TextClip(summary, fontsize=s['font_size'], color=s['text_color'], size=(
-            s['text_width'], None), method='caption')
+        txt = TextClip(
+            font=DEFAULT_FONT,
+            text=summary,
+            font_size=s['font_size'],
+            color=s['text_color'],
+            size=(s['text_width'], None),
+            method='caption',
+        )
         h, w = txt.h, txt.w
         x0 = (s['width'] - w) // 2
         def pos(t): return (x0, s['height'] - (s['height'] + h) * (t/total))
-        mov = txt.set_position(pos).set_duration(total)
-        video = CompositeVideoClip([bg, mov]).fx(
-            video_speedx, factor=s['speedup_factor'])
-        audio_clip = clip_audio.set_start(s['delay']/s['speedup_factor'])
-        final = video.set_audio(audio_clip)
+        mov = txt.with_position(pos).with_duration(total)
+        video = CompositeVideoClip([bg, mov]).with_effects([
+            vfx.MultiplySpeed(factor=s['speedup_factor'])
+        ])
+        audio_clip = clip_audio.with_start(s['delay']/s['speedup_factor'])
+        final = video.with_audio(audio_clip)
         if os.path.exists(video_path):
             os.remove(video_path)
         final.write_videofile(video_path, fps=s['fps'], codec='libx264',

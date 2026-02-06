@@ -5,7 +5,7 @@ Orchestrates transcription, summarization, TTS, and video generation for podcast
 
 Requires:
 - podcast_video_generator.py in same directory
-- Environment variables: ASSEMBLYAI_API_KEY, OPENAI_API_KEY
+- Environment variables: GEMINI_API_KEY
 """
 from typing import Optional
 
@@ -17,18 +17,13 @@ class PodcastSummaryWorkflow:
     Workflow for converting a podcast URL into a summary video.
     """
 
-    def __init__(self,
-                 assemblyai_api_key: Optional[str] = None,
-                 openai_api_key: Optional[str] = None):
+    def __init__(self, assemblyai_api_key: Optional[str] = None):
         """
         Args:
             assemblyai_api_key: AssemblyAI API key or None to use env var
-            openai_api_key: OpenAI API key or None to use env var
         """
-        # Initialize the underlying video generator
         self.generator = PodcastVideoGenerator(
-            assemblyai_api_key=assemblyai_api_key,
-            openai_api_key=openai_api_key
+            assemblyai_api_key=assemblyai_api_key
         )
 
     from typing import Mapping

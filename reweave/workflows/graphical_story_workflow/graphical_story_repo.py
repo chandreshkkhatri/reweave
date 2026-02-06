@@ -2,12 +2,11 @@
 Repo for Graphical Story
 """
 import json
-import requests
 from pathlib import Path
 
 from reweave.utils.fs_utils import read_content_from_file, write_content_to_file, write_bytes_to_file, write_stream_to_file
 from .commons import Script
-from ...ai.openai_service import generate_image, generate_audio
+from ...ai.gemini_service import generate_image, generate_audio
 
 OUTPUT_DIR = Path('data/output/graphical_story')
 STORY_FILENAME = 'story.txt'
@@ -87,13 +86,12 @@ class GraphicalStoryRepo:
             The following is a background narration in the scene: \"{narration}\"
             Do not add any text to the images.
         """
-        image_url = generate_image(prompt)
-        if not image_url:
+        image_bytes = generate_image(prompt)
+        if not image_bytes:
             raise RuntimeError(
-                f"Failed to generate image URL for scene {panel_number}")
-        image_content = requests.get(image_url).content
+                f"Failed to generate image for scene {panel_number}")
         write_bytes_to_file(
-            image_content, f"{panel_number+1}.png", f"{OUTPUT_DIR}/{content_id}")
+            image_bytes, f"{panel_number+1}.png", f"{OUTPUT_DIR}/{content_id}")
 
     def save_scene_audio(self, content_id, panel_number, narration):
         """

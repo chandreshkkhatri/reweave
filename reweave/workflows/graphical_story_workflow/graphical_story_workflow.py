@@ -2,7 +2,7 @@
 Build Video from Content and template
 """
 
-import moviepy.editor as mp
+from moviepy import ImageClip, AudioFileClip, CompositeVideoClip
 from reweave.utils.env_utils import is_interactive
 
 from .graphical_story_repo import GraphicalStoryRepo
@@ -72,22 +72,18 @@ class GraphicalStoryWorkflow:
         scene_list = script.scene_list
 
         for idx in range(len(scene_list)):
-            image_clip = mp.ImageClip(
-                f"{footage_uri}/{idx+1}.png",
-            )
-            audio_clip = mp.AudioFileClip(
-                f"{footage_uri}/{idx+1}.mp3"
-            )
+            image_clip = ImageClip(f"{footage_uri}/{idx+1}.png")
+            audio_clip = AudioFileClip(f"{footage_uri}/{idx+1}.mp3")
             duration = audio_clip.duration
-            image_clip = image_clip.set_start(start)
-            image_clip = image_clip.set_duration(duration)
-            audio_clip = audio_clip.set_start(start)
-            clip = image_clip.set_audio(audio_clip)
-            clip = clip.set_duration(duration)
+            image_clip = image_clip.with_start(start)
+            image_clip = image_clip.with_duration(duration)
+            audio_clip = audio_clip.with_start(start)
+            clip = image_clip.with_audio(audio_clip)
+            clip = clip.with_duration(duration)
             start += duration
             video_clips.append(clip)
 
-        video = mp.CompositeVideoClip(video_clips)
+        video = CompositeVideoClip(video_clips)
 
         self.graphical_story_repo.create_video(content_id, video)
 

@@ -5,12 +5,13 @@ from unittest.mock import patch, MagicMock
 
 # Mock external dependencies before importing our modules
 sys.modules['yt_dlp'] = MagicMock()
-sys.modules['requests'] = MagicMock()
 sys.modules['dotenv'] = MagicMock()
-sys.modules['openai'] = MagicMock()
+sys.modules['google'] = MagicMock()
+sys.modules['google.genai'] = MagicMock()
+sys.modules['google.genai.types'] = MagicMock()
+sys.modules['gtts'] = MagicMock()
 sys.modules['moviepy'] = MagicMock()
-sys.modules['moviepy.editor'] = MagicMock()
-sys.modules['moviepy.video.fx.speedx'] = MagicMock()
+sys.modules['youtube_transcript_api'] = MagicMock()
 
 # Ensure project root is on path for imports
 root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -30,12 +31,11 @@ def test_podcast_summary_workflow_init():
         from reweave.workflows.podcast_summary_workflow.podcast_summary_workflow import PodcastSummaryWorkflow
 
         workflow = PodcastSummaryWorkflow(
-            assemblyai_api_key='test_key1', openai_api_key='test_key2')
+            assemblyai_api_key='test_key1')
 
         # Verify the generator was initialized with correct keys
         mock_generator.assert_called_once_with(
-            assemblyai_api_key='test_key1',
-            openai_api_key='test_key2'
+            assemblyai_api_key='test_key1'
         )
         assert workflow.generator == mock_generator.return_value
 
