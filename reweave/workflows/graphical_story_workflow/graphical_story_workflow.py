@@ -21,30 +21,45 @@ class GraphicalStoryWorkflow:
 
     def create_story(self, content_id, title, additional_instructions=None):
         """
-        Create story
+        Create story. Skipped if an identical story is already cached.
         """
+        if self.graphical_story_repo.is_story_cached(content_id, title, additional_instructions):
+            if is_interactive():
+                print(f"[cache] story for '{content_id}' is up-to-date, skipping generation.")
+            return
         story = self.script_builder.generate_story(
             title, additional_instructions)
-        self.graphical_story_repo.create_story(content_id, story)
+        self.graphical_story_repo.create_story(content_id, story, title, additional_instructions)
 
     def generate_script(self, content_id):
         """
-        Generate script
+        Generate script. Skipped if an identical script is already cached.
         """
+        if self.graphical_story_repo.is_script_cached(content_id):
+            if is_interactive():
+                print(f"[cache] script for '{content_id}' is up-to-date, skipping generation.")
+            return
         story = self.graphical_story_repo.get_story(content_id)
         script = self.script_builder.generate_script(story)
         self.graphical_story_repo.create_script(content_id, script)
 
     def generate_footages(self, content_id):
         """
-        Generate footages
+        Generate footages. Individual scenes are skipped if already cached.
         """
-        footage_uri = self.graphical_story_repo.get_footage_uri(content_id)
         script = self.graphical_story_repo.get_script(content_id)
         scene_list = script.scene_list
 
         for idx, scene in enumerate(scene_list):
-            # Delegate generation to repository
+            if self.graphical_story_repo.is_scene_cached(
+                content_id, idx,
+                script.title, script.visual_style_description,
+                script.characters, scene,
+            ):
+                if is_interactive():
+                    print(f"[cache] scene {idx+1}/{len(scene_list)} is up-to-date, skipping.")
+                continue
+
             self.graphical_story_repo.save_scene_image(
                 content_id,
                 idx,
@@ -57,7 +72,8 @@ class GraphicalStoryWorkflow:
             self.graphical_story_repo.save_scene_audio(
                 content_id,
                 idx,
-                scene.narration
+                scene.narration,
+                scene,
             )
             if is_interactive():
                 print(f"Generated {idx+1} of {len(scene_list)}")

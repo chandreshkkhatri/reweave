@@ -1,19 +1,22 @@
 """
 Gemini AI Service
 
-Provides text generation (Gemini), image generation (Imagen 3), and TTS (gTTS)
+Provides text generation (Gemini), image generation (Imagen 3), and TTS (Gemini native TTS)
 through a unified interface compatible with the existing workflow patterns.
 """
 
+import io
 import json
 import os
+import struct
 
 from google import genai
 from google.genai import types
-from gtts import gTTS
 
 DEFAULT_TEXT_MODEL = "gemini-2.5-flash"
-DEFAULT_IMAGE_MODEL = "imagen-3.0-generate-002"
+DEFAULT_IMAGE_MODEL = "gemini-3-pro-image-preview"
+FALLBACK_IMAGE_MODEL = "imagen-4.0-fast-generate-001"
+DEFAULT_TTS_MODEL = "gemini-2.5-flash-preview-tts"
 
 _client = None
 
@@ -51,12 +54,21 @@ class TextResponse:
 
 
 class AudioResponse:
-    """Wraps gTTS to provide a .stream_to_file() interface like OpenAI TTS."""
-    def __init__(self, text, lang='en'):
-        self._tts = gTTS(text=text, lang=lang)
+    """Wraps raw PCM bytes and converts to MP3 via pydub on stream_to_file()."""
+    def __init__(self, pcm_bytes: bytes, sample_rate: int = 24000, channels: int = 1):
+        self._pcm_bytes = pcm_bytes
+        self._sample_rate = sample_rate
+        self._channels = channels
 
-    def stream_to_file(self, path):
-        self._tts.save(path)
+    def stream_to_file(self, path: str):
+        from pydub import AudioSegment
+        audio = AudioSegment(
+            data=self._pcm_bytes,
+            sample_width=2,          # 16-bit PCM
+            frame_rate=self._sample_rate,
+            channels=self._channels,
+        )
+        audio.export(path, format="mp3")
 
 
 # ---------------------------------------------------------------------------
@@ -165,28 +177,56 @@ def generate_text(system_prompt, user_prompt=None, model=DEFAULT_TEXT_MODEL,
 
 def generate_image(prompt):
     """
-    Generate an image using Imagen 3.
+    Generate an image using the configured image model, with automatic fallback
+    to FALLBACK_IMAGE_MODEL on 503 UNAVAILABLE errors.
 
     Args:
         prompt: Text description of the image to generate.
 
     Returns:
-        Image bytes (PNG/JPEG). Callers should write these directly with
-        write_bytes_to_file() instead of downloading from a URL.
+        Image bytes (PNG/JPEG).
     """
-    response = _get_client().models.generate_images(
-        model=DEFAULT_IMAGE_MODEL,
+    from google.genai.errors import ServerError
+
+    client = _get_client()
+    try:
+        return _generate_image_with_model(client, DEFAULT_IMAGE_MODEL, prompt)
+    except ServerError as e:
+        if "503" in str(e) or "UNAVAILABLE" in str(e):
+            print(f"Primary model unavailable, falling back to {FALLBACK_IMAGE_MODEL}...")
+            return _generate_image_with_model(client, FALLBACK_IMAGE_MODEL, prompt)
+        raise
+
+
+def _generate_image_with_model(client, model, prompt):
+    """Generate an image with a specific model, routing by model family."""
+    if model.startswith("gemini-"):
+        response = client.models.generate_content(
+            model=model,
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                response_modalities=["IMAGE", "TEXT"],
+            ),
+        )
+        if response.candidates and response.candidates[0].content:
+            for part in response.candidates[0].content.parts:
+                if part.inline_data and part.inline_data.data:
+                    return part.inline_data.data
+        raise ValueError("No image returned from Gemini image model.")
+
+    # Imagen models
+    response = client.models.generate_images(
+        model=model,
         prompt=prompt,
         config=types.GenerateImagesConfig(
             number_of_images=1,
             output_mime_type='image/png',
+            negative_prompt="text, letters, words, captions, titles, subtitles, labels, watermarks, speech bubbles, thought bubbles, signs with text",
         ),
     )
-
     if response.generated_images:
         return response.generated_images[0].image.image_bytes
-    else:
-        raise ValueError("No image returned from Imagen API.")
+    raise ValueError("No image returned from Imagen API.")
 
 
 def transcribe_audio(audio_path, model=DEFAULT_TEXT_MODEL):
@@ -223,14 +263,46 @@ def transcribe_audio(audio_path, model=DEFAULT_TEXT_MODEL):
 
 def generate_audio(text, lang='en'):
     """
-    Generate TTS audio using Google Text-to-Speech (gTTS).
+    Generate TTS audio using Gemini native TTS for natural, expressive speech.
+
+    Falls back to gTTS if the Gemini TTS model is unavailable.
 
     Args:
         text: Text to convert to speech.
-        lang: Language code (default: 'en').
+        lang: Language code (currently used only for gTTS fallback).
 
     Returns:
-        An AudioResponse object with a .stream_to_file(path) method,
-        compatible with the existing workflow patterns.
+        An AudioResponse object with a .stream_to_file(path) method.
     """
-    return AudioResponse(text=text, lang=lang)
+    from google.genai.errors import ServerError, ClientError
+
+    try:
+        client = _get_client()
+        response = client.models.generate_content(
+            model=DEFAULT_TTS_MODEL,
+            contents=text,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name="Charon",
+                        )
+                    )
+                ),
+            ),
+        )
+        pcm_bytes = response.candidates[0].content.parts[0].inline_data.data
+        return AudioResponse(pcm_bytes=pcm_bytes, sample_rate=24000, channels=1)
+    except (ServerError, ClientError, Exception) as e:
+        print(f"Gemini TTS unavailable ({e}), falling back to gTTS...")
+        from gtts import gTTS
+        import io
+
+        class _GTTSFallback:
+            def __init__(self, text, lang):
+                self._tts = gTTS(text=text, lang=lang)
+            def stream_to_file(self, path):
+                self._tts.save(path)
+
+        return _GTTSFallback(text, lang)

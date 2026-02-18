@@ -2,8 +2,57 @@
 Story Builder class
 """
 
+import hashlib
+
 from .commons import NarrativeStructurePrompts
 from ...ai.gemini_service import generate_text
+
+
+# ---------------------------------------------------------------------------
+# Prompt templates (module-level so changes automatically bust the cache)
+# ---------------------------------------------------------------------------
+
+_STORY_PROMPT_TEMPLATE = """
+    You are an experienced fiction writer known for vivid, emotionally engaging stories.
+    Write a complete short story for the following topic: {{title}}
+
+    {{additional_instructions}}
+
+    Follow these guidelines for a compelling narrative:
+
+    {narrative_structure}
+
+    Additional writing requirements:
+    - Create distinct, memorable characters with clear motivations.
+    - Use sensory details: describe what characters see, hear, smell, and feel.
+    - Include meaningful dialogue that reveals character personality.
+    - Build tension through escalating stakes and obstacles.
+    - End with a satisfying resolution that feels earned.
+    - Use vivid visual descriptions for settings and actions — these will be used to generate illustrations.
+    - Aim for 800-1200 words, enough depth for 6-8 illustrated scenes.
+
+    Write the story as flowing prose. Do not label acts or sections.
+""".format(narrative_structure=NarrativeStructurePrompts.three_act_narrative)
+
+_SCRIPT_PROMPT_TEMPLATE = """
+    You are a helpful screenwriter. Use the story provided below to write a script.
+
+    Provide detailed character descriptions for each character including their name, age, gender,
+    description, their personality, and any other relevant information.
+    Also provide a very detailed description of their looks which can be used to independently
+    create similar images from various artists for different panels.
+    For each scene, provide a background description, the list of characters and a narration.
+
+    The story is as follows: {{story}}
+"""
+
+
+def _template_hash(template: str) -> str:
+    return hashlib.sha256(template.encode()).hexdigest()
+
+
+STORY_PROMPT_HASH = _template_hash(_STORY_PROMPT_TEMPLATE)
+SCRIPT_PROMPT_HASH = _template_hash(_SCRIPT_PROMPT_TEMPLATE)
 
 
 class ScriptBuilder:
@@ -105,9 +154,9 @@ class ScriptBuilder:
                                             "type": "string"
                                         }
                                     },
-                                }
-                            },
-                            "required": ["scene_number", "scene_description", "narration", "characters_in_scene"]
+                                },
+                                "required": ["scene_number", "scene_description", "narration", "characters_in_scene"]
+                            }
                         },
                     },
                     "required": ["title", "story_summary", "visual_style_description", "characters", "scene_list"]
