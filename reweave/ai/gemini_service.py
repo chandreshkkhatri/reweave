@@ -261,6 +261,98 @@ def transcribe_audio(audio_path, model=DEFAULT_TEXT_MODEL):
         client.files.delete(name=uploaded_file.name)
 
 
+def transcribe_youtube_url(youtube_url, model=DEFAULT_TEXT_MODEL, start_offset=None, end_offset=None, context=None):
+    """
+    Transcribe a YouTube video directly using Gemini's native YouTube support.
+
+    Args:
+        youtube_url: The public YouTube URL.
+        model: Gemini model name (default: gemini-2.5-flash).
+        start_offset: Optional start time in seconds.
+        end_offset: Optional end time in seconds.
+        context: Optional context string to help with transcription (e.g. previous chunk summary).
+
+    Returns:
+        Transcription text as a string.
+    """
+    client = _get_client()
+    
+    video_metadata = None
+    if start_offset is not None or end_offset is not None:
+        video_metadata = types.VideoMetadata(
+            start_offset=f"{int(start_offset)}s" if start_offset is not None else None,
+            end_offset=f"{int(end_offset)}s" if end_offset is not None else None,
+        )
+
+    prompt = (
+        'Transcribe this YouTube video accurately and completely. '
+        'Identify all speakers and label their dialogues (e.g., "Speaker 1:", "Speaker 2:" or names like "Elon Musk:" if identifiable). '
+        'Include all spoken words. '
+    )
+    if context:
+        prompt += f'Context from previous part (use the same speaker labels if possible): {context}\n\n'
+    prompt += 'Output only the transcription text with speaker labels, no timestamps.'
+
+    response = client.models.generate_content(
+        model=model,
+        contents=[
+            types.Part(
+                file_data=types.FileData(
+                    file_uri=youtube_url,
+                    mime_type='video/mp4'
+                ),
+                video_metadata=video_metadata
+            ),
+            prompt,
+        ],
+        config=types.GenerateContentConfig(temperature=0.1),
+    )
+    return response.text
+
+
+def transcribe_youtube_url_chunked(youtube_url, total_duration, chunk_size_seconds=600, model=DEFAULT_TEXT_MODEL):
+    """
+    Transcribe a long YouTube video by breaking it into smaller chunks.
+
+    Args:
+        youtube_url: The public YouTube URL.
+        total_duration: Total duration of the video in seconds.
+        chunk_size_seconds: Duration of each chunk in seconds (default: 10 minutes).
+        model: Gemini model name.
+
+    Returns:
+        Combined transcription text.
+    """
+    num_chunks = (int(total_duration) // chunk_size_seconds) + (1 if int(total_duration) % chunk_size_seconds > 0 else 0)
+    full_transcript = []
+    
+    print(f"Dividing video into {num_chunks} chunks of {chunk_size_seconds}s each...")
+    
+    context = None
+    for i in range(num_chunks):
+        start = i * chunk_size_seconds
+        end = min((i + 1) * chunk_size_seconds, int(total_duration))
+        
+        print(f"Transcribing chunk {i+1}/{num_chunks} ({start}s to {end}s)...")
+        chunk_text = transcribe_youtube_url(youtube_url, model=model, start_offset=start, end_offset=end, context=context)
+        full_transcript.append(chunk_text)
+        
+        # Get a small context for the next chunk if there's more to go
+        if i < num_chunks - 1:
+            try:
+                summary_prompt = "Summarize the last few sentences of this transcription segment to provide context for the next part."
+                context_resp = generate_text(
+                    system_prompt=summary_prompt,
+                    user_prompt=chunk_text[-2000:], # Use last part for context
+                    temperature=0.3
+                )
+                context = context_resp.content
+            except Exception:
+                context = None
+                
+    return "\n".join(full_transcript)
+
+
 def generate_audio(text, lang='en'):
     """
     Generate TTS audio using Gemini native TTS for natural, expressive speech.

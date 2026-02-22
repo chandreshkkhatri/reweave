@@ -26,7 +26,10 @@ from moviepy import (
 )
 from youtube_transcript_api import YouTubeTranscriptApi
 
-from reweave.ai.gemini_service import generate_text, generate_audio, transcribe_audio
+from reweave.ai.gemini_service import (
+    generate_text, generate_audio, transcribe_audio,
+    transcribe_youtube_url, transcribe_youtube_url_chunked
+)
 from reweave.utils.video_utils import DEFAULT_FONT, create_title_card
 
 
@@ -60,6 +63,7 @@ class PodcastVideoGenerator:
             'description': info.get('description'),
             'uploader': info.get('uploader'),
             'tags': info.get('tags'),
+            'duration': info.get('duration'),
         }
 
     def transcribe_youtube_native(self, youtube_url: str, languages=None) -> str:
@@ -179,13 +183,24 @@ class PodcastVideoGenerator:
         os.makedirs(output_dir, exist_ok=True)
         meta = self.get_youtube_metadata(youtube_url)
 
-        # Try audio-based transcription (more accurate), fall back to captions
+        # Try Gemini native YouTube transcription (new, experimental)
+        # Falls back to audio-based or YouTube native captions on failure
         if use_audio_transcription:
             try:
-                source_audio = self.download_youtube_audio(youtube_url, output_dir)
-                transcript = self.transcribe_from_audio(source_audio)
-            except Exception:
-                transcript = self.transcribe_youtube_native(youtube_url)
+                print(f"Attempting Gemini native transcription for: {youtube_url}")
+                duration = meta.get('duration')
+                if duration and duration > 600: # If longer than 10 minutes, use chunked
+                    print(f"Video duration ({duration}s) exceeds threshold. Using chunked transcription.")
+                    transcript = transcribe_youtube_url_chunked(youtube_url, duration)
+                else:
+                    transcript = transcribe_youtube_url(youtube_url)
+            except Exception as e:
+                print(f"Gemini native transcription failed: {e}. Falling back...")
+                try:
+                    source_audio = self.download_youtube_audio(youtube_url, output_dir)
+                    transcript = self.transcribe_from_audio(source_audio)
+                except Exception:
+                    transcript = self.transcribe_youtube_native(youtube_url)
         else:
             transcript = self.transcribe_youtube_native(youtube_url)
 
