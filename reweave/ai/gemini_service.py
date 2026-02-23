@@ -221,7 +221,6 @@ def _generate_image_with_model(client, model, prompt):
         config=types.GenerateImagesConfig(
             number_of_images=1,
             output_mime_type='image/png',
-            negative_prompt="text, letters, words, captions, titles, subtitles, labels, watermarks, speech bubbles, thought bubbles, signs with text",
         ),
     )
     if response.generated_images:
@@ -299,7 +298,7 @@ def transcribe_youtube_url(youtube_url, model=DEFAULT_TEXT_MODEL, start_offset=N
             types.Part(
                 file_data=types.FileData(
                     file_uri=youtube_url,
-                    mime_type='video/mp4'
+                    mime_type='video/youtube'
                 ),
                 video_metadata=video_metadata
             ),
@@ -334,8 +333,21 @@ def transcribe_youtube_url_chunked(youtube_url, total_duration, chunk_size_secon
         end = min((i + 1) * chunk_size_seconds, int(total_duration))
         
         print(f"Transcribing chunk {i+1}/{num_chunks} ({start}s to {end}s)...")
-        chunk_text = transcribe_youtube_url(youtube_url, model=model, start_offset=start, end_offset=end, context=context)
-        full_transcript.append(chunk_text)
+        # Add a simple retry for transient server errors
+        max_retries = 2
+        for attempt in range(max_retries + 1):
+            try:
+                chunk_text = transcribe_youtube_url(youtube_url, model=model, start_offset=start, end_offset=end, context=context)
+                full_transcript.append(chunk_text)
+                break
+            except Exception as e:
+                if attempt < max_retries:
+                    print(f"  Chunk transcription failed (attempt {attempt+1}): {e}. Retrying...")
+                    import time
+                    time.sleep(2)
+                else:
+                    print(f"  Chunk transcription failed after {max_retries+1} attempts.")
+                    raise e
         
         # Get a small context for the next chunk if there's more to go
         if i < num_chunks - 1:
@@ -351,6 +363,46 @@ def transcribe_youtube_url_chunked(youtube_url, total_duration, chunk_size_secon
                 context = None
                 
     return "\n".join(full_transcript)
+
+
+def get_youtube_metadata_gemini(youtube_url: str) -> dict:
+    """
+    Extract YouTube video metadata (title, duration) using Gemini API.
+    This is more reliable than yt-dlp in restricted environments.
+    """
+    client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+    prompt = (
+        "Tell me the exact duration of this video in seconds and its official title. "
+        "Output ONLY a JSON object with 'title' and 'duration_seconds' keys."
+    )
+    
+    try:
+        response = client.models.generate_content(
+            model=DEFAULT_TEXT_MODEL,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_uri(file_uri=youtube_url, mime_type="video/youtube"),
+                        types.Part.from_text(text=prompt),
+                    ]
+                )
+            ],
+            config=types.GenerateContentConfig(
+                # Use JSON schema for structured output if possible, or just MIME type
+                response_mime_type="application/json",
+            )
+        )
+        data = json.loads(response.text)
+        return {
+            'title': data.get('title', 'Unknown Title'),
+            'duration': data.get('duration_seconds', 0),
+            'uploader': 'Unknown',
+            'description': ''
+        }
+    except Exception as e:
+        print(f"Gemini metadata extraction failed: {e}")
+        raise e
 
 
 def generate_audio(text, lang='en'):
@@ -398,3 +450,102 @@ def generate_audio(text, lang='en'):
                 self._tts.save(path)
 
         return _GTTSFallback(text, lang)
+
+
+def generate_subtitles(text: str, total_duration: float) -> str:
+    """
+    Generate SRT subtitles for the given text, scaled to the total duration.
+    Uses Gemini to segment the text into natural-sounding chunks.
+    """
+    client = _get_client()
+    system_prompt = (
+        "Split the following text into natural, readable subtitle segments. "
+        "For each segment, provide the text and a relative weight (0-1) for how much of the "
+        "total duration it should occupy based on word count/complexity. "
+        "Output ONLY a JSON array of objects: [{'text': '...', 'weight': 0.1}, ...]"
+    )
+    
+    try:
+        response = client.models.generate_content(
+            model=DEFAULT_TEXT_MODEL,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=system_prompt),
+                        types.Part.from_text(text=text),
+                    ]
+                )
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
+        )
+        segments = json.loads(response.text)
+        
+        # Scale weights to ensure they sum to 1.0
+        total_weight = sum(s.get('weight', 0) for s in segments)
+        if total_weight == 0:
+            total_weight = len(segments)
+            for s in segments:
+                s['weight'] = 1.0
+                
+        srt_lines = []
+        current_time = 0.0
+        
+        for i, s in enumerate(segments):
+            segment_duration = (s['weight'] / total_weight) * total_duration
+            start_time = current_time
+            end_time = current_time + segment_duration
+            
+            # Format as SRT timestamp: HH:MM:SS,ms
+            def format_ts(seconds):
+                h = int(seconds // 3600)
+                m = int((seconds % 3600) // 60)
+                sec = int(seconds % 60)
+                ms = int((seconds % 1) * 1000)
+                return f"{h:02}:{m:02}:{sec:02},{ms:03}"
+            
+            srt_lines.append(str(i + 1))
+            srt_lines.append(f"{format_ts(start_time)} --> {format_ts(end_time)}")
+            srt_lines.append(s['text'])
+            srt_lines.append("")
+            
+            current_time = end_time
+            
+        return "\n".join(srt_lines)
+    except Exception as e:
+        print(f"Subtitle generation failed: {e}")
+        # Simplistic fallback if AI fails
+        return f"1\n00:00:00,000 --> 00:00:05,000\n{text[:100]}..."
+
+
+def get_visual_keywords(text: str, num_keywords: int = 5) -> list:
+    """Ask Gemini to pick key visual topics for image generation."""
+    client = _get_client()
+    prompt = (
+        f"Based on the following summary, pick {num_keywords} distinct visual themes or "
+        "descriptors that would make for compelling images in a slideshow. "
+        "Output ONLY a JSON array of short, descriptive strings."
+    )
+    
+    try:
+        response = client.models.generate_content(
+            model=DEFAULT_TEXT_MODEL,
+            contents=[
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=prompt),
+                        types.Part.from_text(text=text),
+                    ]
+                )
+            ],
+            config=types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
+        )
+        return json.loads(response.text)
+    except Exception as e:
+        print(f"Visual keyword extraction failed: {e}")
+        return ["A professional podcast studio recording setting."]

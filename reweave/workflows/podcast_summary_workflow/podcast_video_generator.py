@@ -28,8 +28,12 @@ from youtube_transcript_api import YouTubeTranscriptApi
 
 from reweave.ai.gemini_service import (
     generate_text, generate_audio, transcribe_audio,
-    transcribe_youtube_url, transcribe_youtube_url_chunked
+    transcribe_youtube_url, transcribe_youtube_url_chunked,
+    generate_image, get_youtube_metadata_gemini,
+    generate_subtitles, get_visual_keywords
 )
+from reweave.ai.fal_service import generate_live_portrait as generate_live_portrait_fal
+from reweave.ai.replicate_service import generate_live_portrait_replicate
 from reweave.utils.video_utils import DEFAULT_FONT, create_title_card
 
 
@@ -53,18 +57,35 @@ class PodcastVideoGenerator:
         }
 
     def get_youtube_metadata(self, youtube_url: str) -> Dict:
+        """Get metadata preferring Gemini native extraction to avoid yt-dlp bot detection."""
+        try:
+            print(f"Extracting metadata for {youtube_url} using Gemini...")
+            return get_youtube_metadata_gemini(youtube_url)
+        except Exception as e:
+            print(f"Gemini metadata extraction failed: {e}. Falling back to yt-dlp...")
+            
         ydl_opts = {'quiet': True}
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(youtube_url, download=False)
-        if not info:
-            raise ValueError("Failed to extract YouTube metadata")
-        return {
-            'title': info.get('title'),
-            'description': info.get('description'),
-            'uploader': info.get('uploader'),
-            'tags': info.get('tags'),
-            'duration': info.get('duration'),
-        }
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(youtube_url, download=False)
+            if not info:
+                raise ValueError("Failed to extract YouTube metadata")
+            return {
+                'title': info.get('title'),
+                'description': info.get('description'),
+                'uploader': info.get('uploader'),
+                'tags': info.get('tags'),
+                'duration': info.get('duration'),
+            }
+        except Exception as e:
+            print(f"Warning: yt-dlp metadata extraction failed: {e}. Using fallback info.")
+            # Basic fallback if yt-dlp fails (common in server environments)
+            return {
+                'title': 'YouTube Video',
+                'description': '',
+                'uploader': 'Unknown',
+                'duration': 600, # Default to 10 mins to avoid immediate chunking if unknown
+            }
 
     def transcribe_youtube_native(self, youtube_url: str, languages=None) -> str:
         """
@@ -131,6 +152,63 @@ class PodcastVideoGenerator:
         audio.stream_to_file(out_path)
         return out_path
 
+    def generate_speaker_image(self, transcript: str, output_path: str, speaker_description: str = None) -> str:
+        """Generate a portrait of the speaker based on the transcript and optional description."""
+        # Use Gemini to generate a descriptive prompt for the speaker
+        system_msg = "Based on the following transcript, describe what the main speaker looks like. Create a descriptive prompt for an AI image generator to create a high-quality, professional portrait of them. Focus on facial features, age, gender, and professional appearance. Output ONLY the image generation prompt."
+        if speaker_description:
+            system_msg += f" IMPORTANT: The speaker should be {speaker_description}."
+            
+        prompt_resp = generate_text(
+            system_prompt=system_msg,
+            user_prompt=transcript[:5000], # Use first 5k chars for context
+            temperature=0.4
+        )
+        image_prompt = prompt_resp.content or "A professional portrait of a tech podcast host."
+        print(f"Generating speaker image with prompt: {image_prompt}")
+        
+        image_bytes = generate_image(image_prompt)
+        with open(output_path, "wb") as f:
+            f.write(image_bytes)
+        return output_path
+
+    def create_liveportrait_video(self, portrait_image_path: str, audio_path: str, video_path: str, driving_video_url: str = None) -> str:
+        """Synthesize a talking-head video using LivePortrait (fal.ai or Replicate)."""
+        replicate_token = os.getenv("REPLICATE_API_TOKEN")
+        fal_key = os.getenv("FAL_KEY")
+        
+        if driving_video_url is None:
+            # Default driving video
+            driving_video_url = "https://storage.googleapis.com/falserverless/model_tests/live-portrait/liveportrait-example.mp4"
+            
+        try:
+            if fal_key:
+                print("FAL_KEY found. Using fal.ai for Talking Head (EchoMimic)...")
+                from reweave.ai.fal_service import generate_live_portrait as generate_live_portrait_fal
+                # Use the actual summary audio for lip-syncing
+                result_url = generate_live_portrait_fal(portrait_image_path, audio_path=audio_path)
+            elif replicate_token:
+                print("REPLICATE_API_TOKEN found. Using Replicate for Talking Head (SadTalker)...")
+                # Use the actual summary audio for lip-syncing
+                result_url = generate_live_portrait_replicate(portrait_image_path, audio_path)
+            else:
+                raise ValueError("Neither REPLICATE_API_TOKEN nor FAL_KEY found. Cannot generate LivePortrait.")
+
+            print(f"LivePortrait generated at: {result_url}")
+            
+            # Download the result to the local video_path
+            import requests
+            resp = requests.get(result_url)
+            with open(video_path, "wb") as f:
+                f.write(resp.content)
+            
+            print(f"LivePortrait video saved to {video_path}")
+            return video_path
+            
+        except Exception as e:
+            print(f"LivePortrait synthesis failed: {e}. Ensure you have credits and correct API keys.")
+            raise e
+
     def create_scrolling_video(self, summary: str, audio_path: str, video_path: str,
                                title: str = '') -> str:
         s = self.video_settings
@@ -178,19 +256,131 @@ class PodcastVideoGenerator:
             clip_audio.close()
         return video_path
 
+    def create_slideshow_video(self, summary: str, audio_path: str, video_path: str, output_dir: str) -> str:
+        """Create a slideshow video with Ken Burns effects and burned-in captions."""
+        import subprocess
+        from moviepy import AudioFileClip
+        
+        audio_clip = AudioFileClip(audio_path)
+        duration = audio_clip.duration
+        audio_clip.close()
+        
+        # 1. Generate subtitles
+        srt_path = os.path.join(output_dir, 'summary.srt')
+        srt_content = generate_subtitles(summary, duration)
+        with open(srt_path, 'w') as f:
+            f.write(srt_content)
+            
+        # 2. Get visual keywords and generate images
+        keywords = get_visual_keywords(summary, num_keywords=4)
+        image_paths = []
+        for i, kw in enumerate(keywords):
+            img_path = os.path.join(output_dir, f'slideshow_{i}.png')
+            img_prompt = f"A professional, cinematic illustration representing {kw}. Minimalist and high-quality."
+            img_bytes = generate_image(img_prompt)
+            with open(img_path, 'wb') as f:
+                f.write(img_bytes)
+            image_paths.append(img_path)
+            
+        # 3. Create a complex FFmpeg filter to stitch them with Ken Burns and transitions
+        # This is a simplified version: one image for the whole duration with Ken Burns
+        # A more complex one would swap images. Let's do a sequence of images.
+        num_images = len(image_paths)
+        seg_dur = duration / num_images
+        
+        # For each image, create a 720p segment with zoompan
+        input_args = []
+        filter_complex = []
+        for i, img in enumerate(image_paths):
+            input_args.extend(['-loop', '1', '-t', str(seg_dur), '-i', img])
+            # Zoompan filter for Ken Burns effect
+            filter_complex.append(f"[{i}:v]scale=1280:720,zoompan=z='min(zoom+0.001,1.5)':d={int(seg_dur*24)}:s=1280x720[v{i}];")
+            
+        # Concatenate visuals
+        concat_input = "".join([f"[v{i}]" for i in range(num_images)])
+        filter_complex.append(f"{concat_input}concat=n={num_images}:v=1:a=0[vfinal];")
+        
+        # Burn in subtitles (FFmpeg subtitles filter needs special escaping for paths)
+        # We'll use a local relative path if possible, or escape properly
+        safe_srt_path = srt_path.replace(":", "\\:").replace("\\", "/")
+        filter_complex.append(f"[vfinal]subtitles='{safe_srt_path}':force_style='FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Alignment=2'[vcap]")
+
+        cmd = [
+            'ffmpeg', '-y'
+        ] + input_args + [
+            '-i', audio_path,
+            '-filter_complex', "".join(filter_complex),
+            '-map', '[vcap]',
+            '-map', f'{num_images}:a', # The audio input is the last one
+            '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-shortest',
+            video_path
+        ]
+        
+        print(f"Running FFmpeg for slideshow: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        return video_path
+
+    def create_audiogram_video(self, summary: str, background_image_path: str, audio_path: str, video_path: str, output_dir: str) -> str:
+        """Create an audiogram with reactive waveform and burned-in captions."""
+        import subprocess
+        from moviepy import AudioFileClip
+        
+        audio_clip = AudioFileClip(audio_path)
+        duration = audio_clip.duration
+        audio_clip.close()
+        
+        srt_path = os.path.join(output_dir, 'summary.srt')
+        srt_content = generate_subtitles(summary, duration)
+        with open(srt_path, 'w') as f:
+            f.write(srt_content)
+
+        safe_srt_path = srt_path.replace(":", "\\:").replace("\\", "/")
+        
+        # FFmpeg filter:
+        # 1. Scale background to 720p
+        # 2. Add showwaves filter for audio waveform
+        # 3. Burn in subtitles
+        filter_complex = (
+            "[0:v]scale=1280:720[bg];"
+            "[1:a]showwaves=s=1280x200:mode=cline:colors=white:r=24[wave];"
+            "[bg][wave]overlay=0:H-200[vwave];"
+            f"[vwave]subtitles='{safe_srt_path}':force_style='FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Alignment=2'[vfinal]"
+        )
+        
+        cmd = [
+            'ffmpeg', '-y',
+            '-loop', '1', '-t', str(duration), '-i', background_image_path,
+            '-i', audio_path,
+            '-filter_complex', filter_complex,
+            '-map', '[vfinal]',
+            '-map', '1:a',
+            '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-shortest',
+            video_path
+        ]
+        
+        print(f"Running FFmpeg for audiogram: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        return video_path
+
     def generate_video_from_url(self, youtube_url: str, output_dir: str = 'output',
-                                use_audio_transcription: bool = True) -> Dict[str, object]:
+                                use_audio_transcription: bool = True,
+                                speaker_description: str = None,
+                                mode: str = 'auto') -> Dict[str, object]:
+        """
+        Generate summary video.
+        Modes: 'avatar' (LivePortrait), 'slideshow' (Visual Summary), 'audiogram' (Waveform), 'scrolling', 'auto'
+        """
         os.makedirs(output_dir, exist_ok=True)
         meta = self.get_youtube_metadata(youtube_url)
 
-        # Try Gemini native YouTube transcription (new, experimental)
-        # Falls back to audio-based or YouTube native captions on failure
+        # Transcription
         if use_audio_transcription:
             try:
                 print(f"Attempting Gemini native transcription for: {youtube_url}")
                 duration = meta.get('duration')
-                if duration and duration > 600: # If longer than 10 minutes, use chunked
-                    print(f"Video duration ({duration}s) exceeds threshold. Using chunked transcription.")
+                if duration and duration > 600:
                     transcript = transcribe_youtube_url_chunked(youtube_url, duration)
                 else:
                     transcript = transcribe_youtube_url(youtube_url)
@@ -207,9 +397,34 @@ class PodcastVideoGenerator:
         summary = self.summarize_text(transcript)
         audio_path = os.path.join(output_dir, 'summary.mp3')
         self.synthesize_speech(summary, audio_path)
-        video_path = os.path.join(output_dir, 'summary_video.mp4')
-        title = meta.get('title', '')
-        self.create_scrolling_video(summary, audio_path, video_path, title)
+        
+        # Decide mode
+        if mode == 'auto':
+            if (os.getenv("FAL_KEY") is not None) or (os.getenv("REPLICATE_API_TOKEN") is not None):
+                mode = 'avatar'
+            else:
+                mode = 'scrolling'
+        
+        print(f"Workflow mode set to: {mode}")
+        portrait_path = os.path.join(output_dir, 'speaker_portrait.png')
+        video_path = os.path.join(output_dir, f'summary_video_{mode}.mp4')
+
+        if mode == 'avatar':
+            print("Generating Avatar (LivePortrait) summary video...")
+            self.generate_speaker_image(transcript, portrait_path, speaker_description=speaker_description)
+            self.create_liveportrait_video(portrait_path, audio_path, video_path)
+        elif mode == 'slideshow':
+            print("Generating Visual Summary (Slideshow) video...")
+            self.create_slideshow_video(summary, audio_path, video_path, output_dir)
+        elif mode == 'audiogram':
+            print("Generating Dynamic Audiogram video...")
+            self.generate_speaker_image(transcript, portrait_path, speaker_description=speaker_description)
+            self.create_audiogram_video(summary, portrait_path, audio_path, video_path, output_dir)
+        else:
+            print("Generating Scrolling Text summary video...")
+            title = meta.get('title', '')
+            self.create_scrolling_video(summary, audio_path, video_path, title)
+            
         txt_t = os.path.join(output_dir, 'transcript.txt')
         txt_s = os.path.join(output_dir, 'summary.txt')
         with open(txt_t, 'w') as f:
