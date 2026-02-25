@@ -150,7 +150,13 @@ class PodcastVideoGenerator:
             os.remove(out_path)
         audio = generate_audio(text)
         audio.stream_to_file(out_path)
-        return out_path
+    def get_audio_duration(self, audio_path: str) -> float:
+        """Get duration of an audio file in seconds."""
+        from moviepy import AudioFileClip
+        clip = AudioFileClip(audio_path)
+        duration = clip.duration
+        clip.close()
+        return duration
 
     def generate_speaker_image(self, transcript: str, output_path: str, speaker_description: str = None) -> str:
         """Generate a portrait of the speaker based on the transcript and optional description."""
@@ -338,13 +344,18 @@ class PodcastVideoGenerator:
         safe_srt_path = srt_path.replace(":", "\\:").replace("\\", "/")
         
         # FFmpeg filter:
-        # 1. Scale background to 720p
-        # 2. Add showwaves filter for audio waveform
-        # 3. Burn in subtitles
+        # 1. Scale background to 720p and split for multiple uses
+        # 2. Crop and blur the middle region (waveform) and bottom region (subtitles)
+        # 3. Add showwaves filter for audio waveform, center vertically
+        # 4. Burn in subtitles
         filter_complex = (
-            "[0:v]scale=1280:720[bg];"
+            "[0:v]scale=1280:720,split=3[bg][bg_c1][bg_c2];"
+            "[bg_c1]crop=1280:200:0:260,boxblur=20:5[blur_wave];"
+            "[bg_c2]crop=1280:150:0:570,boxblur=20:5[blur_sub];"
+            "[bg][blur_wave]overlay=0:260[bg1];"
+            "[bg1][blur_sub]overlay=0:570[bg2];"
             "[1:a]showwaves=s=1280x200:mode=cline:colors=white:r=24[wave];"
-            "[bg][wave]overlay=0:H-200[vwave];"
+            "[bg2][wave]overlay=0:(H-h)/2[vwave];"
             f"[vwave]subtitles='{safe_srt_path}':force_style='FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Alignment=2'[vfinal]"
         )
         
@@ -361,6 +372,88 @@ class PodcastVideoGenerator:
         ]
         
         print(f"Running FFmpeg for audiogram: {' '.join(cmd)}")
+        subprocess.run(cmd, check=True)
+        return video_path
+
+    def extract_frames_from_youtube(self, youtube_url: str, timestamps: list, output_dir: str) -> list:
+        """Extract specific frames from a YouTube video without downloading the whole thing."""
+        import subprocess
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get stream URL
+        cmd_url = [os.path.join(os.getcwd(), '.venv/bin/yt-dlp'), '-g', '-f', 'bestvideo[height<=720]', youtube_url]
+        try:
+            stream_url = subprocess.check_output(cmd_url, text=True).strip()
+        except Exception as e:
+            print(f"Failed to get stream URL: {e}. Falling back to slower method...")
+            # Fallback to python-based if needed, but let's assume .venv works
+            return []
+
+        frame_paths = []
+        for i, ts in enumerate(timestamps):
+            out_path = os.path.join(output_dir, f'screenshot_{i}.png')
+            # Extract one frame at timestamp ts
+            cmd_f = [
+                'ffmpeg', '-y', 
+                '-ss', str(ts), 
+                '-i', stream_url, 
+                '-vframes', '1', 
+                '-q:v', '2',
+                out_path
+            ]
+            print(f"Extracting frame at {ts}s to {out_path}...")
+            subprocess.run(cmd_f, check=False) # check=False to skip occasional seeking errors
+            if os.path.exists(out_path):
+                frame_paths.append(out_path)
+        return frame_paths
+
+    def create_screenshot_slideshow_video(self, summary: str, youtube_url: str, duration: float, audio_path: str, video_path: str, output_dir: str) -> str:
+        """Create a slideshow using actual screenshots from the podcast video."""
+        # 1. Subtitles
+        srt_path = os.path.join(output_dir, 'summary.srt')
+        srt_content = generate_subtitles(summary, duration)
+        with open(srt_path, 'w') as f:
+            f.write(srt_content)
+            
+        # 2. Extract 5-10 screenshots evenly spaced
+        num_frames = 6
+        timestamps = [int(i * (duration / (num_frames + 1))) for i in range(1, num_frames + 1)]
+        image_paths = self.extract_frames_from_youtube(youtube_url, timestamps, output_dir)
+        
+        if not image_paths:
+            print("No screenshots extracted. Falling back to AI images...")
+            return self.create_slideshow_video(summary, audio_path, video_path, output_dir)
+
+        # 3. Create slideshow (reusing logic from create_slideshow_video but with existing images)
+        import subprocess
+        num_images = len(image_paths)
+        seg_dur = duration / num_images
+        
+        input_args = []
+        filter_complex = []
+        for i, img in enumerate(image_paths):
+            input_args.extend(['-loop', '1', '-t', str(seg_dur), '-i', img])
+            filter_complex.append(f"[{i}:v]scale=1280:720,zoompan=z='min(zoom+0.001,1.5)':d={int(seg_dur*24)}:s=1280x720[v{i}];")
+            
+        concat_input = "".join([f"[v{i}]" for i in range(num_images)])
+        filter_complex.append(f"{concat_input}concat=n={num_images}:v=1:a=0[vfinal];")
+        
+        safe_srt_path = srt_path.replace(":", "\\:").replace("\\", "/")
+        filter_complex.append(f"[vfinal]subtitles='{safe_srt_path}':force_style='FontSize=24,PrimaryColour=&HFFFFFF,OutlineColour=&H000000,Alignment=2'[vcap]")
+
+        cmd = [
+            'ffmpeg', '-y'
+        ] + input_args + [
+            '-i', audio_path,
+            '-filter_complex', "".join(filter_complex),
+            '-map', '[vcap]',
+            '-map', f'{num_images}:a',
+            '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac', '-shortest',
+            video_path
+        ]
+        
+        print(f"Running FFmpeg for screenshot slideshow: {' '.join(cmd)}")
         subprocess.run(cmd, check=True)
         return video_path
 
@@ -406,19 +499,28 @@ class PodcastVideoGenerator:
                 mode = 'scrolling'
         
         print(f"Workflow mode set to: {mode}")
-        portrait_path = os.path.join(output_dir, 'speaker_portrait.png')
         video_path = os.path.join(output_dir, f'summary_video_{mode}.mp4')
-
         if mode == 'avatar':
             print("Generating Avatar (LivePortrait) summary video...")
+            portrait_path = os.path.join(output_dir, 'speaker_portrait.png')
             self.generate_speaker_image(transcript, portrait_path, speaker_description=speaker_description)
             self.create_liveportrait_video(portrait_path, audio_path, video_path)
         elif mode == 'slideshow':
             print("Generating Visual Summary (Slideshow) video...")
             self.create_slideshow_video(summary, audio_path, video_path, output_dir)
+        elif mode == 'screenshot_slideshow':
+            print("Generating Screenshot Slideshow video...")
+            duration_audio = self.get_audio_duration(audio_path)
+            self.create_screenshot_slideshow_video(summary, youtube_url, duration_audio, audio_path, video_path, output_dir)
         elif mode == 'audiogram':
             print("Generating Dynamic Audiogram video...")
-            self.generate_speaker_image(transcript, portrait_path, speaker_description=speaker_description)
+            portrait_path = os.path.join(output_dir, 'background.png')
+            keywords = get_visual_keywords(summary, num_keywords=1)
+            keyword = keywords[0] if keywords else "a professional podcast recording studio"
+            img_prompt = f"A professional, cinematic illustration representing {keyword}. Minimalist, high-quality, suitable for a podcast background."
+            img_bytes = generate_image(img_prompt)
+            with open(portrait_path, 'wb') as f:
+                f.write(img_bytes)
             self.create_audiogram_video(summary, portrait_path, audio_path, video_path, output_dir)
         else:
             print("Generating Scrolling Text summary video...")

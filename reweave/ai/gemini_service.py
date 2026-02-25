@@ -460,9 +460,9 @@ def generate_subtitles(text: str, total_duration: float) -> str:
     client = _get_client()
     system_prompt = (
         "Split the following text into natural, readable subtitle segments. "
-        "For each segment, provide the text and a relative weight (0-1) for how much of the "
-        "total duration it should occupy based on word count/complexity. "
-        "Output ONLY a JSON array of objects: [{'text': '...', 'weight': 0.1}, ...]"
+        "Keep the text EXACTLY as it is, just add segment boundaries. "
+        "Each segment should be 5-10 words long. "
+        "Output ONLY a JSON array of strings: ['segment 1...', 'segment 2...', ...]"
     )
     
     try:
@@ -483,18 +483,16 @@ def generate_subtitles(text: str, total_duration: float) -> str:
         )
         segments = json.loads(response.text)
         
-        # Scale weights to ensure they sum to 1.0
-        total_weight = sum(s.get('weight', 0) for s in segments)
-        if total_weight == 0:
-            total_weight = len(segments)
-            for s in segments:
-                s['weight'] = 1.0
-                
+        # Calculate weights based on character count for better TTS synchronization
+        full_char_count = sum(len(s) for s in segments)
+        if full_char_count == 0:
+            return ""
+
         srt_lines = []
         current_time = 0.0
         
-        for i, s in enumerate(segments):
-            segment_duration = (s['weight'] / total_weight) * total_duration
+        for i, segment_text in enumerate(segments):
+            segment_duration = (len(segment_text) / full_char_count) * total_duration
             start_time = current_time
             end_time = current_time + segment_duration
             
@@ -508,7 +506,7 @@ def generate_subtitles(text: str, total_duration: float) -> str:
             
             srt_lines.append(str(i + 1))
             srt_lines.append(f"{format_ts(start_time)} --> {format_ts(end_time)}")
-            srt_lines.append(s['text'])
+            srt_lines.append(segment_text.strip())
             srt_lines.append("")
             
             current_time = end_time
